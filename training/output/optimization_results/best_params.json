@@ -1,0 +1,10 @@
+{
+  "n_components": 50,
+  "seq_length": 21,
+  "hidden_size": 256,
+  "num_layers": 2,
+  "dropout": 0.1,
+  "batch_size": 8,
+  "learning_rate": 0.03717371747825049,
+  "huber_delta": 1.1
+}

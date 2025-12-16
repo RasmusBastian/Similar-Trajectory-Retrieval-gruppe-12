@@ -1,0 +1,29 @@
+# Zig build artifacts
+# These directories are created by the Zig compiler and build system.
+/zig-out/
+/zig-cache/
+/.zig-cache/
+
+# Jetzig framework file
+.jetzig
+
+# Core dump files
+*.core
+
+# Python artifacts
+# These are for the python code in the pytorch-lstm directory.
+/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+/.ipynb_checkpoints/
+
+# Trained models from the PyTorch scripts
+/pytorch-lstm/models/
+*.pt
+
+# OS-specific files
+.DS_Store
+
+# Toolchains
+/zig/

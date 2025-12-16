@@ -1,0 +1,11 @@
+# Temporary/generated files
+tmp/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# macOS
+._*
+.DS_Store

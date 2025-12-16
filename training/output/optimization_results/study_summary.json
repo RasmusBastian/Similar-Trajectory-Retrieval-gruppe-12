@@ -1,0 +1,17 @@
+{
+  "best_trial": 5,
+  "best_value": 4.10143960374268,
+  "best_params": {
+    "n_components": 50,
+    "seq_length": 21,
+    "hidden_size": 256,
+    "num_layers": 2,
+    "dropout": 0.1,
+    "batch_size": 8,
+    "learning_rate": 0.03717371747825049,
+    "huber_delta": 1.1
+  },
+  "n_trials": 26,
+  "n_pruned": 11,
+  "n_complete": 15
+}
