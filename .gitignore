@@ -1,0 +1,20 @@
+# .NET
+bin/
+obj/
+.vs/
+*.user
+TestResults/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+.pytest_cache/
+
+# Editors / OS
+.idea/
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
