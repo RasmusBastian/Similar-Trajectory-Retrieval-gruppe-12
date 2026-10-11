@@ -54,9 +54,16 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    exe.root_module.addLibraryPath(.{ .cwd_relative = "./onnxruntime-linux-x64/lib" });
-    exe.root_module.addIncludePath(.{ .cwd_relative = "./onnxruntime-linux-x64/include" });
+    // Pick the prebuilt onnxruntime matching the target platform
+    const is_macos = target.result.os.tag == .macos;
+    const onnxruntime_dir = if (is_macos) "onnxruntime-osx-arm64" else "onnxruntime-linux-x64";
+    const onnxruntime_lib = b.path(b.fmt("{s}/lib", .{onnxruntime_dir}));
+
+    exe.root_module.addLibraryPath(onnxruntime_lib);
+    exe.root_module.addIncludePath(b.path(b.fmt("{s}/include", .{onnxruntime_dir})));
     exe.linkSystemLibrary("onnxruntime");
+    // On macOS, embed the lib path so the dylib is found at runtime without DYLD_LIBRARY_PATH
+    if (is_macos) exe.root_module.addRPath(onnxruntime_lib);
 
     const zap = b.dependency("zap", .{
         .target = target,
@@ -117,7 +124,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
+    lstm_tests.root_module.addLibraryPath(onnxruntime_lib);
     lstm_tests.linkSystemLibrary("onnxruntime");
+    if (is_macos) lstm_tests.root_module.addRPath(onnxruntime_lib);
     const run_lstm_tests = b.addRunArtifact(lstm_tests);
 
     const test_step = b.step("test", "Run tests");

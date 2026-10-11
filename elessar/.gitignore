@@ -27,3 +27,6 @@
 
 # Toolchains
 /zig/
+
+# Local macOS onnxruntime (download onnxruntime-osx-arm64-1.23.2 from GitHub releases)
+/onnxruntime-osx-arm64/
