@@ -1,0 +1,7 @@
+.git/
+legacy/
+python/
+**/bin/
+**/obj/
+**/.vs/
+**/.venv/

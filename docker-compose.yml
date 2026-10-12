@@ -1,0 +1,63 @@
+# The database is exposed on localhost:5433 (not 5432) to avoid clashing with a locally installed PostgreSQL.
+#
+# Start everything:   docker compose up -d
+# Stop:               docker compose down
+# Reset the database: docker compose down -v   (then up again re-creates and re-imports)
+#
+# Ports can be changed in a .env file
+
+name: trajectory-retrieval
+
+services:
+  db:
+    image: imresamu/postgis:17-3.5
+    environment:
+      POSTGRES_USER: str
+      POSTGRES_PASSWORD: str
+      POSTGRES_DB: trajectories
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U str -d trajectories"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # One-off job: imports legacy/ CSV data into the database, then exits (skips if already imported)
+  importer:
+    build: ./python
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: str
+      PGPASSWORD: str
+      PGDATABASE: trajectories
+    volumes:
+      - ./legacy:/app/legacy:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: src/TrajectoryRetrieval.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=trajectories;Username=str;Password=str"
+      Data__VertexCsv: /data/legacy/telchar/output/vertex.csv
+      Data__EdgeConnectionsCsv: /data/legacy/telchar/output/edge_connections.csv
+      Data__TravelTimeDirectory: /data/legacy/postprocessing/output
+    ports:
+      - "${API_PORT:-5038}:8080"
+    volumes:
+      - ./legacy:/data/legacy:ro
+    depends_on:
+      importer:
+        condition: service_completed_successfully
+
+volumes:
+  dbdata:
