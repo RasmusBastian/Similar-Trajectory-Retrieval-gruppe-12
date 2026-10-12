@@ -1,0 +1,6 @@
+@TrajectoryRetrieval.Api_HostAddress = http://localhost:5038
+
+GET {{TrajectoryRetrieval.Api_HostAddress}}/health
+Accept: application/json
+
+###
