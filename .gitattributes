@@ -1,0 +1,7 @@
+# Keep LF line endings for files used inside Linux containers, also when checked out on Windows
+* text=auto
+*.sh text eol=lf
+*.sql text eol=lf
+*.py text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
