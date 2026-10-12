@@ -31,10 +31,12 @@ dotnet build
 dotnet test
 dotnet run --project src/TrajectoryRetrieval.Api   # http://localhost:5038/health
 ```
-You can also instead of `dotnet run --project src/TrajectoryRetrieval.Api` 
-do `cd src`
-Then `cd TrajectoryRetrieval.Api`
-Then `dotnet run`
+You can also instead of `dotnet run --project src/TrajectoryRetrieval.Api` do the following: 
+```bash 
+cd src
+cd TrajectoryRetrieval.Api
+dotnet run
+```
 
 ## Python
 
