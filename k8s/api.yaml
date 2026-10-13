@@ -1,0 +1,71 @@
+# Runs the C# API in our namespace on cs-astep02, next to the old Elessar service.
+#
+# Apply (on the server):  sudo k3s kubectl apply -f k8s/api.yaml
+# Status:                 sudo k3s kubectl get pods -n project-5-str -l app=trajectory-api
+# Logs:                   sudo k3s kubectl logs -n project-5-str deploy/trajectory-api
+# Test from the server:   sudo k3s kubectl port-forward -n project-5-str svc/trajectory-api 5038:8080
+#                         curl localhost:5038/health
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trajectory-api
+  namespace: project-5-str
+  labels:
+    app: trajectory-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trajectory-api
+  template:
+    metadata:
+      labels:
+        app: trajectory-api
+    spec:
+      containers:
+        - name: api
+          # Built and pushed by .github/workflows/ci.yml on every merge to main
+          image: ghcr.io/rasmusbastian/trajectory-api:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # Development also serves the OpenAPI document at /openapi/v1.json
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Development
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trajectory-api
+  namespace: project-5-str
+  labels:
+    app: trajectory-api
+spec:
+  type: ClusterIP
+  selector:
+    app: trajectory-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
