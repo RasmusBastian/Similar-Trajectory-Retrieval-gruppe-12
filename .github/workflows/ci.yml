@@ -1,5 +1,9 @@
 # Builds the code and runs all tests on every push and pull request.
 # Make it required for merging into main under Settings → Branches → Branch protection.
+# Kode køres når der pushes til main og pulles fra main
+# C# build and tests bygger hele løsningen (TrajectoryRetrieval.slnx) med .NET 10 og kører xUnit-testene
+# Python tests installerer requirements.txt med Python 3.12 (samme som Dockerfilen) og kører pytest
+# Docker image bygger API- og importer-images, når testene er grønne. Ved push/merge til main uploades de også til ghcr.io
 
 name: CI
 
@@ -55,14 +59,56 @@ jobs:
       - name: Test
         run: pytest -v
 
+  # Builds the images on every run, but only pushes them to ghcr.io on pushes to main
+  # (i.e. after a merge), and only when the tests above have passed.
   docker:
-    name: Docker images build
+    name: Docker image (${{ matrix.name }})
+    needs: [dotnet, python]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: trajectory-api
+            context: .
+            dockerfile: src/TrajectoryRetrieval.Api/Dockerfile
+          - name: trajectory-importer
+            context: python
+            dockerfile: python/Dockerfile
+    env:
+      PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build API image
-        run: docker build -f src/TrajectoryRetrieval.Api/Dockerfile -t trajectory-api:ci .
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Build importer image
-        run: docker build -t trajectory-importer:ci python
+      - name: Log in to ghcr.io
+        if: env.PUSH == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tags: latest + the short commit id, e.g. ghcr.io/rasmusbastian/trajectory-api:ff6aa11
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+
+      - name: Build (and push on main)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
