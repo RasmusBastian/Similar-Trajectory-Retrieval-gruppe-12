@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: project-5-str-service
+  namespace: project-5-str
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: project-5-str-service
+  template:
+    metadata:
+      labels:
+        app: project-5-str-service
+    spec:
+      containers:
+      - name: project-5-str-service
+        image: sebylizz/p5-elessar
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3030
+        resources:
+          requests:
+            cpu: 300m
+            memory: 1Gi
+          limits:
+            cpu: 600m
+            memory: 2Gi
