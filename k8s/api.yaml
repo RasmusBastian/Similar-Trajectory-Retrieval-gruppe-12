@@ -3,8 +3,7 @@
 # Apply (on the server):  sudo k3s kubectl apply -f k8s/api.yaml
 # Status:                 sudo k3s kubectl get pods -n project-5-str -l app=trajectory-api
 # Logs:                   sudo k3s kubectl logs -n project-5-str deploy/trajectory-api
-# Test from the server:   sudo k3s kubectl port-forward -n project-5-str svc/trajectory-api 5038:8080
-#                         curl localhost:5038/health
+# Test (on the VPN):      http://api.project-5-str.cs-astep02.srv.aau.dk/health
 
 apiVersion: apps/v1
 kind: Deployment
@@ -69,3 +68,27 @@ spec:
     - name: http
       port: 8080
       targetPort: http
+---
+# Makes the API reachable from outside the cluster (on the AAU VPN), same setup as k8s/elessar/ingress.yaml.
+# The host name is not in DNS yet; until it is, add this line to your hosts file:
+#   192.38.60.66  api.project-5-str.cs-astep02.srv.aau.dk
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: trajectory-api
+  namespace: project-5-str
+  labels:
+    app: trajectory-api
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: api.project-5-str.cs-astep02.srv.aau.dk
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: trajectory-api
+                port:
+                  name: http
