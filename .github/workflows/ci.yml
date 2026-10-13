@@ -1,0 +1,68 @@
+# Builds the code and runs all tests on every push and pull request.
+# Make it required for merging into main under Settings → Branches → Branch protection.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet:
+    name: C# build and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore TrajectoryRetrieval.slnx
+
+      - name: Build
+        run: dotnet build TrajectoryRetrieval.slnx --no-restore -c Release
+
+      - name: Test
+        run: dotnet test TrajectoryRetrieval.slnx --no-build -c Release --logger "console;verbosity=normal"
+
+  python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same version as python/Dockerfile
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: python/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Test
+        run: pytest -v
+
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -f src/TrajectoryRetrieval.Api/Dockerfile -t trajectory-api:ci .
+
+      - name: Build importer image
+        run: docker build -t trajectory-importer:ci python
