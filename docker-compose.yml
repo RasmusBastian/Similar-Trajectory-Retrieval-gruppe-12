@@ -59,5 +59,26 @@ services:
       importer:
         condition: service_completed_successfully
 
+  # One-off job: map-matches Beijing trajectories from the shared aSTEP database (astep-aau/data, on localhost:5432)
+  # and saves them in bj_matched_trajectory. Not started by `up`, run with:
+  #   docker compose run --rm --build mapmatching --limit 1000
+  mapmatching:
+    build: ./mapmatching
+    profiles: [mapmatching]
+    environment:
+      SHARED_DATABASE_URL: ${SHARED_DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:5432/data}
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: str
+      PGPASSWORD: str
+      PGDATABASE: trajectories
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./db/init:/app/sql:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   dbdata:

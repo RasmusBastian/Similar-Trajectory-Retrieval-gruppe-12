@@ -1,0 +1,6 @@
+geopandas
+numpy
+pandas
+psycopg[binary]
+pyproj
+shapely
