@@ -1,0 +1,47 @@
+[train_trajsimi.py:50 <module>()] -> python train_trajsimi.py --dataset rome --trajsimi_measure_fn_name frechet
+[train_trajsimi.py:51 <module>()] -> =================================
+[train_trajsimi.py:52 <module>()] -> debug = False
+dumpfile_uniqueid = 
+seed = 2000
+device = cpu
+root_dir = /home/rbbje/TSMini
+checkpoint_dir = /home/rbbje/TSMini/exp/snapshots
+dataset = rome
+dataset_prefix = rome_20200
+dataset_file = /home/rbbje/TSMini/data/rome_20200
+min_traj_len = 20
+max_traj_len = 200
+cell_size = 100.0
+cellspace_buffer = 500.0
+traj_duplicate_short_tolerance = 80
+traj_distance_norm_denominator = 1000
+seq_embedding_dim = 128
+tsmini_conv_channel_dim = 64
+tsmini_conv_hidden_in_dim = 16
+tsmini_conv_kernel_size = 3
+tsmini_conv_stride = 1
+tsmini_patch_emb_dim = 128
+tsmin_trans_attention_head = 4
+tsmin_trans_attention_dropout = 0.1
+tsmin_trans_attention_layer = 1
+tsmin_trans_pos_encoder_dropout = 0.1
+tsmin_trans_hidden_dim = 512
+trajsimi_encoder_name = TSMini
+trajsimi_measure_fn_name = frechet
+trajsimi_loss_mse_weight = 0.2
+trajsimi_batch_size = 128
+trajsimi_epoch = 40
+trajsimi_training_bad_patience = 5
+trajsimi_learning_rate = 0.002
+trajsimi_training_lr_degrade_step = 15
+trajsimi_training_lr_degrade_gamma = 0.5
+trajsimi_learning_weight_decay = 1e-05
+trajsimi_finetune_lr_rescale = 0.5
+[train_trajsimi.py:53 <module>()] -> =================================
+[data_loader.py:13 read_trajsimi_traj_dataset()] -> [trajsimi traj dataset] Start loading.
+[data_loader.py:36 read_trajsimi_traj_dataset()] -> [trajsimi traj dataset] Loaded. @=0.89. traj: #total=10000 (trains/evals/tests=7000/1000/2000)
+[data_loader.py:43 read_trajsimi_simi_dataset()] -> [trajsimi simi dataset] Start loading.
+[data_loader.py:51 read_trajsimi_simi_dataset()] -> [trajsimi simi dataset] Loaded. @=0.24, trains/evals/tests=7000/1000/2000
+[trajsimi.py:27 __init__()] -> Cellspace: {'x_min': 1376522.101112794, 'x_max': 1405351.9738111123, 'y_min': 5129074.184866741, 'y_max': 5161479.444049783, 'x_unit': 100.0, 'y_unit': 100.0, 'buffer': 500.0, 'x_size': 289, 'y_size': 325, 'size': 93925}
+[trajsimi.py:60 train()] -> train_trajsimi start.@=1793267595.508
+[trajsimi.py:125 train()] -> training. ep-batch=0-0, loss=18.1866, @=6.746, gpu=(0, 0), ram=1303
