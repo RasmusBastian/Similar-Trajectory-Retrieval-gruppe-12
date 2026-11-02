@@ -151,13 +151,30 @@ def mode_query(args, trajs, E, P, L):
         except ImportError:
             print("matplotlib not installed: uv pip install matplotlib")
             return
-        fig, ax = plt.subplots(figsize=(8, 8))
-        for i in top_emb:
-            ax.plot(trajs[i][:, 0], trajs[i][:, 1], color="tab:blue", alpha=0.5, lw=1)
-        ax.plot(trajs[q][:, 0], trajs[q][:, 1], color="tab:red", lw=2.5, label=f"query #{q}")
-        ax.plot([], [], color="tab:blue", label=f"top-{args.k} by embedding")
-        ax.set_aspect("equal"); ax.legend(); ax.set_title("TSMini most-similar search (Web Mercator, m)")
+        ncols = 2
+        nrows = (len(top_emb) + ncols - 1) // ncols
+        fig, axes = plt.subplots(nrows, ncols, figsize=(12, 4 * nrows), squeeze=False)
+        query_traj = trajs[q]
+        for rank, i in enumerate(top_emb, 1):
+            ax = axes[(rank - 1) // ncols][(rank - 1) % ncols]
+            candidate = trajs[i]
+            ax.plot(query_traj[:, 0], query_traj[:, 1], color="red", lw=2, label=f"query #{q}")
+            ax.plot(candidate[:, 0], candidate[:, 1], color="tab:blue", lw=1.5,
+                    label=f"trajectory #{i}")
+            ax.set_aspect("equal")
+            ax.set_title(
+                f"Rank {rank}: trajectory #{i}\n"
+                f"Frechet: {d_ex[i]:.1f} m | embedding L1: {d_emb[i]:.3f}"
+            )
+            ax.set_xlabel("Web Mercator x (m)")
+            ax.set_ylabel("Web Mercator y (m)")
+            ax.legend()
+        for ax in axes.flat[len(top_emb):]:
+            ax.remove()
+        fig.suptitle(f"Query #{q} compared with TSMini's top {len(top_emb)}", fontsize=14)
+        fig.tight_layout(rect=(0, 0, 1, 0.96))
         fig.savefig(args.plot, dpi=150, bbox_inches="tight")
+        plt.close(fig)
         print(f"saved {args.plot}")
 
 

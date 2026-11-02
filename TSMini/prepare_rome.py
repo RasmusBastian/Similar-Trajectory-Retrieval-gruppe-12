@@ -48,7 +48,7 @@ def lonlat_to_merc(lon, lat):
 
 
 def load_trajs(path, min_len, max_len):
-    csv.field_size_limit(sys.maxsize)
+    csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
     trajs = []
     n_rows = 0
     with open(path, newline="") as f:
