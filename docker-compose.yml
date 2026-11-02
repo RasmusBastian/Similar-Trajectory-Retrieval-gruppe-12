@@ -80,5 +80,33 @@ services:
       db:
         condition: service_healthy
 
+  # One-off job: imports TSMini's inputs and outputs (TSMini/data, TSMini/exp) into the tsmini schema.
+  # Not started by `up`, run with:
+  #   docker compose run --rm --build tsmini-import              (add --replace to re-import)
+  # The raw Rome trajectories are read from ROME_MATCHING_DIR/matching_result.csv (set it in .env).
+  tsmini-import:
+    build:
+      context: ./TSMini
+      dockerfile_inline: |
+        FROM python:3.12-slim
+        RUN pip install --no-cache-dir numpy==1.26.4 h5py==3.11.0 "psycopg[binary]"
+        WORKDIR /app/TSMini
+        ENTRYPOINT ["python", "import_to_db.py"]
+    profiles: [tsmini]
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: str
+      PGPASSWORD: str
+      PGDATABASE: trajectories
+      ROME_MATCHING_CSV: /rome/matching_result.csv
+    volumes:
+      - ./TSMini:/app/TSMini:ro
+      - ./db/init:/app/sql:ro
+      - ${ROME_MATCHING_DIR:-../ST2Vec/data/rome/st_traj/st_traj}:/rome:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   dbdata:

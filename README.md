@@ -80,6 +80,34 @@ Example: travel time of edge 0 at 08:00 on day 7 (slot = hour × 12 + minute / 5
 SELECT seconds[97] FROM edge_travel_time WHERE day = 7 AND edge_id = 0;
 ```
 
+### TSMini (schema `tsmini`)
+
+Inputs and outputs of [TSMini](TSMini/) on the Rome data, in [db/init/03_tsmini.sql](db/init/03_tsmini.sql).
+They are not in git (too large), so they are imported from the files on the PC that trained the model:
+
+```bash
+docker compose run --rm --build tsmini-import              # imports what is not there yet (~2 min)
+docker compose run --rm --build tsmini-import --replace    # deletes and re-imports everything
+```
+
+It reads `TSMini/data/`, `TSMini/exp/` and the raw `matching_result.csv` from `ROME_MATCHING_DIR`
+(default `../ST2Vec/data/rome/st_traj/st_traj`, change it in `.env`).
+
+| Table | Content |
+|---|---|
+| `rome_raw_trajectory` | Input: the map-matched Rome trajectories from `matching_result.csv` (54,482), as `geom` (WGS84) and `node_ids` |
+| `dataset`, `trajectory` | Input: `data/rome_20200.h5`, the 40,426 trajectories TSMini uses, with `split` (train/eval/test/unused) and `source_traj_id` linking back to the raw trajectory |
+| `ground_truth_set`, `ground_truth` | Input: Fréchet distances TSMini trains on. One row per trajectory in a split, `distances[j + 1]` = metres to row `j` of the same split |
+| `embedding` | Output: the 128-number embedding of every trajectory |
+| `training_log` | Output: `exp/log/*.log` |
+| `file` | Output: the trained model (`exp/snapshots/*.pt`) and plots, as `bytea` |
+
+Top 10 most similar trajectories to trajectory 5 (pgAdmin's Geometry Viewer or DBeaver can show `geom_wgs84` on a map):
+
+```sql
+SELECT * FROM tsmini.similar('rome_20200', 5);
+```
+
 The source CSV files stay in `legacy/` (paths in `src/TrajectoryRetrieval.Api/appsettings.json`
 and `python/trajectory_algorithms/paths.py`).
 
