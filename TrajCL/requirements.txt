@@ -1,0 +1,19 @@
+# CPU-only stack on Python 3.11, same torch and numpy as ../TSMini/requirements.txt.
+# Replaces upstream's Python 3.7 / torch 1.8.1 pins. See "Local changes" in readme.md.
+--extra-index-url https://download.pytorch.org/whl/cpu
+--find-links https://data.pyg.org/whl/torch-2.1.0+cpu.html
+
+torch==2.1.1+cpu
+torch_geometric==2.6.1
+torch_cluster==1.6.3+pt21cpu  # random walks for Node2Vec
+
+numpy==1.26.2
+h5py==3.11.0  # reads ../TSMini/data/rome_20200.h5
+pandas==2.2.3
+scikit_learn==1.5.2
+psutil==5.9.6
+pynvml==11.5.0
+setuptools<81
+
+# Not installed: traj_dist. Only needed to compute ground-truth distances other
+# than EDwP in utils/preprocessing_porto.py, which reports an error if it's missing.
