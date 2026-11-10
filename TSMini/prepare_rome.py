@@ -186,6 +186,29 @@ def simi_matrix(fn, trajs, name):
     return M
 
 
+def write_ground_truth(trajs, measures, out_dir, prefix):
+    """Ground truth for the 10,000 trajectories TSMini reads, starting at int(0.7 * n)."""
+    off = int(len(trajs) * 0.7)
+    used = trajs[off : off + N_TOTAL]
+    splits = {
+        "trains": used[:N_TRAIN],
+        "evals": used[N_TRAIN : N_TRAIN + N_EVAL],
+        "tests": used[N_TRAIN + N_EVAL :],
+    }
+    assert [len(v) for v in splits.values()] == [N_TRAIN, N_EVAL, N_TEST]
+
+    for name in measures:
+        print(f"computing {name} ground truth (first call compiles, ~20s)...")
+        fn = make_matrix_fn(MEASURES[name])
+        mats = {k: simi_matrix(fn, v, k) for k, v in splits.items()}
+        max_distance = float(max(m.max() for m in mats.values()))
+        out = os.path.join(out_dir, f"{prefix}_traj_simi_dict_{name}.pkl")
+        with open(out, "wb") as fh:
+            pickle.dump((mats["trains"], mats["evals"], mats["tests"], max_distance), fh,
+                        protocol=4)
+        print(f"wrote {out}  (max_distance={max_distance:.1f} m)")
+
+
 # --------------------------------------------------------------------------- #
 def main():
     ap = argparse.ArgumentParser()
@@ -210,26 +233,7 @@ def main():
 
     h5_path = os.path.join(args.out_dir, args.prefix + ".h5")
     write_h5(trajs, h5_path)
-
-    off = int(len(trajs) * 0.7)
-    used = trajs[off : off + N_TOTAL]
-    splits = {
-        "trains": used[:N_TRAIN],
-        "evals": used[N_TRAIN : N_TRAIN + N_EVAL],
-        "tests": used[N_TRAIN + N_EVAL :],
-    }
-    assert [len(v) for v in splits.values()] == [N_TRAIN, N_EVAL, N_TEST]
-
-    for name in args.measures:
-        print(f"computing {name} ground truth (first call compiles, ~20s)...")
-        fn = make_matrix_fn(MEASURES[name])
-        mats = {k: simi_matrix(fn, v, k) for k, v in splits.items()}
-        max_distance = float(max(m.max() for m in mats.values()))
-        out = os.path.join(args.out_dir, f"{args.prefix}_traj_simi_dict_{name}.pkl")
-        with open(out, "wb") as fh:
-            pickle.dump((mats["trains"], mats["evals"], mats["tests"], max_distance), fh,
-                        protocol=4)
-        print(f"wrote {out}  (max_distance={max_distance:.1f} m)")
+    write_ground_truth(trajs, args.measures, args.out_dir, args.prefix)
     print("done")
 
 

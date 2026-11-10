@@ -6,6 +6,9 @@ splits and ground truth. Run from this folder after TSMini/prepare_rome.py:
     .venv/bin/python prepare_rome.py              # everything except cell embeddings
     .venv/bin/python prepare_rome.py --node2vec   # also train the cell embeddings (about 9 h on CPU)
 
+With --dataset beijing it does the same for Beijing, after TSMini/prepare_beijing.py
+(file names then start with beijing_20200).
+
 Reads   ../TSMini/data/rome_20200.h5
         ../TSMini/data/rome_20200_traj_simi_dict_<measure>.pkl
 Writes  data/rome_20200                           DataFrame with merc_seq, same row order
@@ -47,13 +50,14 @@ def load_trajectories(h5_path):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument('--dataset', default='rome', choices=['rome', 'beijing'])
     ap.add_argument('--tsmini_data', default='../TSMini/data')
     ap.add_argument('--measures', nargs='+', default=['frechet'])
     ap.add_argument('--node2vec', action='store_true', help='train the cell embeddings (about 9 h on CPU)')
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s', datefmt='%H:%M:%S')
-    Config.update({'dataset': 'rome'})
+    Config.update({'dataset': args.dataset})
     os.makedirs(os.path.dirname(Config.dataset_file), exist_ok=True)
     src = os.path.join(args.tsmini_data, Config.dataset_prefix)
 

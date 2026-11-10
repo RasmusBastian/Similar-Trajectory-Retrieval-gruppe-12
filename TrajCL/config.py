@@ -106,6 +106,13 @@ class Config:
             cls.min_lat = 41.79
             cls.max_lon = 12.62
             cls.max_lat = 42.0
+        elif 'beijing' == cls.dataset:
+            # Same area as AREA in TSMini/prepare_beijing.py
+            cls.dataset_prefix = 'beijing_20200'
+            cls.min_lon = 116.20
+            cls.min_lat = 39.75
+            cls.max_lon = 116.55
+            cls.max_lat = 40.03
         else:
             pass
         
