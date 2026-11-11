@@ -25,3 +25,6 @@ venv/
 # TSMini datasets (large; regenerate with TSMini/prepare_rome.py)
 TSMini/data/*.h5
 TSMini/data/*.pkl
+
+# Data/model bundles made by scripts/share_data.py (shared via Google Drive, not git)
+shared/

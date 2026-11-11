@@ -108,5 +108,53 @@ services:
       db:
         condition: service_healthy
 
+  # One-off job: saves TrajCL's trained models, node2vec cell embeddings, logs and embeddings in the trajcl schema,
+  # or writes them back to disk with --restore. Not started by `up`, run with:
+  #   docker compose run --rm --build trajcl-import --prefix beijing_20200            (or rome_20200)
+  #   docker compose run --rm --build trajcl-import --prefix beijing_20200 --restore  (add --force to overwrite)
+  trajcl-import:
+    build:
+      context: ./TrajCL
+      dockerfile_inline: |
+        FROM python:3.12-slim
+        RUN pip install --no-cache-dir numpy==1.26.4 h5py==3.11.0 "psycopg[binary]"
+        WORKDIR /app/TrajCL
+        ENTRYPOINT ["python", "import_to_db.py"]
+    profiles: [trajcl]
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: str
+      PGPASSWORD: str
+      PGDATABASE: trajectories
+      TSMINI_ROOT: /app/TSMini
+    volumes:
+      - ./TrajCL:/app/TrajCL
+      - ./TSMini:/app/TSMini:ro
+      - ./db/init:/app/sql:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # One-off job: exports map-matched Beijing trajectories from the shared aSTEP database (astep-aau/data)
+  # to TSMini/data/beijing_matching_result.csv, the input for TSMini/prepare_rome.py. Not started by `up`, run with:
+  #   docker compose run --rm --build beijing-export             (add e.g. --limit 100000)
+  # Set SHARED_DATABASE_URL in .env if the shared database is not on localhost:5434.
+  beijing-export:
+    build:
+      context: ./TSMini
+      dockerfile_inline: |
+        FROM python:3.12-slim
+        RUN pip install --no-cache-dir "psycopg[binary]"
+        WORKDIR /app/TSMini
+        ENTRYPOINT ["python", "export_beijing.py"]
+    profiles: [beijing]
+    environment:
+      SHARED_DATABASE_URL: ${SHARED_DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:5434/data}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./TSMini:/app/TSMini
+
 volumes:
   dbdata:

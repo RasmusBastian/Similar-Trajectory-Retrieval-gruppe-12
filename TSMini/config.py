@@ -84,6 +84,8 @@ class Config:
             cls.dataset_prefix = 'xian_20200'
         elif 'rome' == cls.dataset:
             cls.dataset_prefix = 'rome_20200'
+        elif 'beijing' == cls.dataset:
+            cls.dataset_prefix = 'beijing_20200'
         else:
             pass
         

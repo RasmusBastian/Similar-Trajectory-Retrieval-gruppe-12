@@ -83,6 +83,37 @@ Times are estimates for an 8-core laptop CPU. Each step needs the one before it.
 
 The `--trajsimi_measure_fn_name frechet` flag is required, as the default in `config.py` is EDwP.
 
+### Training on Beijing
+
+Same steps with `beijing` instead of `rome`. The trajectories come from the shared aSTEP database
+(see "Beijing data for TSMini and TrajCL" in the root README), so build TSMini's Beijing files first.
+The area is about twice the size of Rome's, so expect node2vec to take about twice as long.
+
+```bash
+.venv/bin/python prepare_beijing.py
+.venv/bin/python prepare_beijing.py --node2vec
+.venv/bin/python train.py --dataset beijing
+.venv/bin/python train_trajsimi.py --dataset beijing --trajsimi_measure_fn_name frechet
+```
+
+### Saving results so nothing is trained twice
+
+After each long step, save its output in the project database (schema `trajcl`, from the repository root).
+That stores the node2vec cell embeddings, all `.pt` models, the logs, and (after `embed.py`) an embedding per trajectory:
+
+```bash
+.venv/bin/python embed.py --dataset beijing --trajsimi_measure_fn_name frechet   # after fine-tuning, a few minutes
+docker compose run --rm --build trajcl-import --prefix beijing_20200             # from the repository root
+```
+
+To continue on a machine without the files (e.g. skip node2vec or pre-training), write them back to disk:
+
+```bash
+docker compose run --rm --build trajcl-import --prefix beijing_20200 --restore
+```
+
+Similar trajectories by embedding: `SELECT * FROM trajcl.similar('beijing_20200', 5);`
+
 ### Differences from upstream
 
 Changes that can affect results:

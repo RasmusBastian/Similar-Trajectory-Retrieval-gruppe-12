@@ -45,7 +45,7 @@ def load_trajectories(h5_path):
     return pd.DataFrame({'trajlen': [len(t) for t in merc_seq], 'merc_seq': merc_seq})
 
 
-def main():
+def main(dataset='rome'):
     ap = argparse.ArgumentParser()
     ap.add_argument('--tsmini_data', default='../TSMini/data')
     ap.add_argument('--measures', nargs='+', default=['frechet'])
@@ -53,7 +53,7 @@ def main():
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s', datefmt='%H:%M:%S')
-    Config.update({'dataset': 'rome'})
+    Config.update({'dataset': dataset})
     os.makedirs(os.path.dirname(Config.dataset_file), exist_ok=True)
     src = os.path.join(args.tsmini_data, Config.dataset_prefix)
 

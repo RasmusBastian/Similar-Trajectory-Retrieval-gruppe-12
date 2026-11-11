@@ -80,6 +80,56 @@ Example: travel time of edge 0 at 08:00 on day 7 (slot = hour × 12 + minute / 5
 SELECT seconds[97] FROM edge_travel_time WHERE day = 7 AND edge_id = 0;
 ```
 
+### Beijing data for TSMini and TrajCL
+
+The Beijing dataset lives in the shared aSTEP database ([astep-aau/data](https://github.com/astep-aau/data)),
+not in ours. Run it locally next to this repo on port 5434 (5432 is often taken by a native PostgreSQL):
+
+```bash
+git clone https://github.com/astep-aau/data.git ../astep-data && cd ../astep-data
+cp .env.example .env                  # then set POSTGRES_PORT=5434
+docker compose up -d --build          # downloads ~6 GB and imports it, about 35 min the first time
+```
+
+Add `SHARED_DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5434/data` to this repo's `.env`
+if you use another port. Then build the model inputs (training itself is separate):
+
+```bash
+docker compose run --rm --build beijing-export   # -> TSMini/data/beijing_matching_result.csv (50,000 trajectories)
+cd TSMini && python prepare_rome.py --matching data/beijing_matching_result.csv --prefix beijing_20200
+cd ../TrajCL && python prepare_beijing.py
+```
+
+`export_beijing.py` builds each trajectory from its map-matched `road_points` (edge end nodes), because
+`gps_points` usually only has the start and end point. It keeps trajectories with 20–200 points that lie
+inside central Beijing (116.20–116.55 E, 39.75–40.03 N, the `beijing` area in `TrajCL/config.py`).
+
+### Sharing data and models with the team
+
+Datasets and trained models are too big for git, so they are shared as one zip per dataset in the team's
+Google Drive folder. `scripts/share_data.py` only needs plain Python (no venv):
+
+```bash
+python scripts/share_data.py pack --prefix beijing_20200   # -> shared/beijing_20200_<date>_<name>.zip, upload it
+python scripts/share_data.py list shared/<file>.zip         # who packed it, which models are inside
+python scripts/share_data.py unpack shared/<file>.zip       # files land where TSMini/TrajCL expect them
+docker compose run --rm --build tsmini-import --prefix beijing_20200   # then load into your local database
+docker compose run --rm --build trajcl-import --prefix beijing_20200
+```
+
+Workflow: download the newest zip → unpack → train your part → `pack` → upload. The zip holds the trajectories,
+ground truth, TrajCL's node2vec cell embeddings, all trained models (`.pt`), embeddings and logs, each with a
+checksum. Unpack only adds what you don't have and never overwrites a file that differs from yours (e.g. your own
+newer model) unless you pass `--force`. Model file names are fixed, so **agree who trains which model** before
+starting, otherwise two people's checkpoints of the same model conflict.
+
+### TrajCL (schema `trajcl`)
+
+[db/init/04_trajcl.sql](db/init/04_trajcl.sql): TrajCL's trained models, node2vec cell embeddings, logs and
+per-trajectory embeddings, saved and restored with `docker compose run --rm --build trajcl-import` (see
+[TrajCL/readme.md](TrajCL/readme.md)). TrajCL uses the same trajectories and ground truth as TSMini, so those
+are only in `tsmini`; `trajcl.embedding.idx` is `tsmini.trajectory.idx`.
+
 ### TSMini (schema `tsmini`)
 
 Inputs and outputs of [TSMini](TSMini/) on the Rome data, in [db/init/03_tsmini.sql](db/init/03_tsmini.sql).
