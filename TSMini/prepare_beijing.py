@@ -47,6 +47,7 @@ def connect_shared():
     return psycopg.connect(url.replace("+psycopg2", ""))
 
 
+# Retrieves road segments within 5th ring road from db and converts to meters
 def load_edges(conn):
     """Road segments that touch AREA, as LineStrings in UTM metres, keyed by osm_edges.fid."""
     rows = conn.execute(
@@ -84,6 +85,7 @@ def simulate_gps(road_points, edges_m, interval, noise, rng):
     return points
 
 
+# Reads trips/trajectories in random order
 def load_trajs(conn, edges, args):
     """The first args.n trips, in md5(trajectory_id) order, that pass the filters."""
     to_merc = Transformer.from_crs(UTM_CRS, "EPSG:3857", always_xy=True)  # same formula as lonlat_to_merc
