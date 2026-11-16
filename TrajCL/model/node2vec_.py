@@ -48,7 +48,7 @@ def train_node2vec(edge_index, start_cells = None):
 
     @torch.no_grad()
     def load_checkpoint():
-        checkpoint = torch.load(checkpoint_file)
+        checkpoint = torch.load(checkpoint_file, map_location=Config.device)
         model.load_state_dict(checkpoint['model_state_dict'])
         model.to(Config.device)
         return
@@ -56,7 +56,7 @@ def train_node2vec(edge_index, start_cells = None):
 
     @torch.no_grad()
     def save_embeddings():
-        embs = model().detach()
+        embs = model().detach().cpu()  # saved on the CPU so the file also loads on machines without a GPU
         with open(embs_file, 'wb') as fh:
             pickle.dump(embs, fh, protocol = pickle.HIGHEST_PROTOCOL)
         logging.info('[save embedding] done.')

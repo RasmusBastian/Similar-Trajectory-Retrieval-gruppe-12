@@ -69,7 +69,7 @@ class TrajCL(nn.Module):
 
     def load_checkpoint(self):
         checkpoint_file = '{}/{}_TrajCL_best{}.pt'.format(Config.checkpoint_dir, Config.dataset_prefix, Config.dumpfile_uniqueid)
-        checkpoint = torch.load(checkpoint_file)
+        checkpoint = torch.load(checkpoint_file, map_location=Config.device)
         self.load_state_dict(checkpoint['model_state_dict'])
         return self
 
@@ -133,7 +133,7 @@ class TrajCLTrainer:
         self.aug1 = get_aug_fn(str_aug1)
         self.aug2 = get_aug_fn(str_aug2)
 
-        self.embs = pickle.load(open(Config.dataset_embs_file, 'rb')).to('cpu').detach() # tensor
+        self.embs = tool_funcs.load_cell_embs(Config.dataset_embs_file).detach() # tensor, on the CPU
         self.cellspace = pickle.load(open(Config.dataset_cell_file, 'rb'))
 
         train_dataset, _, _ = read_traj_dataset(Config.dataset_file)
@@ -297,7 +297,7 @@ class TrajCLTrainer:
     
 
     def load_checkpoint(self):
-        checkpoint = torch.load(self.checkpoint_file)
+        checkpoint = torch.load(self.checkpoint_file, map_location=Config.device)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.to(Config.device)
         

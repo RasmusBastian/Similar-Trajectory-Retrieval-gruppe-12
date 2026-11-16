@@ -43,7 +43,7 @@ class TrajSimi:
                                             Config.dumpfile_uniqueid)
         
         self.cellspace = pickle.load(open(Config.dataset_cell_file, 'rb'))
-        self.cellembs = pickle.load(open(Config.dataset_embs_file, 'rb')).to(Config.device) # tensor
+        self.cellembs = tool_funcs.load_cell_embs(Config.dataset_embs_file).to(Config.device) # tensor
 
 
     def train(self):
@@ -137,7 +137,7 @@ class TrajSimi:
                 break
             
         # test
-        checkpoint = torch.load(self.checkpoint_filepath)
+        checkpoint = torch.load(self.checkpoint_filepath, map_location=Config.device)
         self.trajsimiregression.load_state_dict(checkpoint['trajsimi'])
         self.trajsimiregression.to(Config.device)
         self.trajsimiregression.eval()

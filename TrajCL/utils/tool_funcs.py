@@ -16,6 +16,23 @@ except Exception: # no NVIDIA driver / GPU
     _NVML_OK = False
 
 
+def load_cell_embs(path):
+    """Read node2vec cell embeddings (a pickled tensor) onto the CPU, also when they were saved on a GPU.
+    Plain pickle.load fails without CUDA for a tensor that was on a GPU when it was pickled."""
+    import io
+    import pickle
+    import torch
+
+    class _CPUUnpickler(pickle.Unpickler):
+        def find_class(self, module, name):
+            if module == 'torch.storage' and name == '_load_from_bytes':
+                return lambda b: torch.load(io.BytesIO(b), map_location='cpu', weights_only=False)
+            return super().find_class(module, name)
+
+    with open(path, 'rb') as fh:
+        return _CPUUnpickler(fh).load()
+
+
 def mean(x):
     if x == []:
         return 0.0

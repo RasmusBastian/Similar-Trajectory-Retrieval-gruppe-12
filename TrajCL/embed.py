@@ -25,6 +25,7 @@ import torch
 from config import Config
 from model.trajcl import TrajCL
 from task.trajsimi import TrajSimi, TrajSimiRegression
+from utils import tool_funcs
 
 
 def main():
@@ -51,7 +52,7 @@ def main():
 
     # the batch generator only needs the cell space and cell embeddings from its TrajSimi instance
     ctx = SimpleNamespace(cellspace=pickle.load(open(Config.dataset_cell_file, 'rb')),
-                          cellembs=pickle.load(open(Config.dataset_embs_file, 'rb')).to(Config.device))
+                          cellembs=tool_funcs.load_cell_embs(Config.dataset_embs_file).to(Config.device))
     trajs = pd.read_pickle(Config.dataset_file).merc_seq.values
 
     t0 = time.time()
