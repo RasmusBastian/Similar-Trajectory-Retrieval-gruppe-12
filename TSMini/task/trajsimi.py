@@ -156,7 +156,7 @@ class TrajSimi:
                 break
             
         # test
-        checkpoint = torch.load(self.checkpoint_filepath)
+        checkpoint = torch.load(self.checkpoint_filepath, map_location=Config.device)
         self.encoder.load_state_dict(checkpoint['encoder'])
         self.encoder.eval()
 

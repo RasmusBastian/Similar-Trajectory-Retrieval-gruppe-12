@@ -90,14 +90,20 @@ def get_embeddings(trajs, space, force=False):
         sys.exit(f"checkpoint not found: {ckpt}")
     cache = f"{Config.root_dir}/exp/embeddings_{Config.dataset_prefix}.npz"
     stamp = os.path.getmtime(ckpt)
+    model = load_model(ckpt)
     if os.path.exists(cache) and not force:
         z = np.load(cache)
-        if float(z["stamp"]) == stamp and len(z["emb"]) == len(trajs):
-            print(f"loaded cached embeddings {z['emb'].shape} from {cache}")
-            return z["emb"]
+        if len(z["emb"]) == len(trajs):
+            # The cache is valid if it came from this model. The file time can't tell (git checkout and copies
+            # change it), so re-embed the first batch and compare. Costs one batch instead of the whole dataset.
+            check = embed(model, trajs[:256], space)
+            if np.allclose(check, z["emb"][:256], rtol=0, atol=1e-4):
+                print(f"loaded cached embeddings {z['emb'].shape} from {cache}")
+                return z["emb"]
+            print("cached embeddings are from another model")
     print(f"embedding {len(trajs)} trajectories on {Config.device} ...")
     t0 = time.time()
-    E = embed(load_model(ckpt), trajs, space)
+    E = embed(model, trajs, space)
     print(f"done in {time.time() - t0:.1f}s")
     np.savez(cache, emb=E, stamp=stamp)
     print(f"saved {cache}")

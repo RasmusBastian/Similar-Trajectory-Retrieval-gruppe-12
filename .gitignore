@@ -28,3 +28,6 @@ TSMini/data/*.pkl
 
 # Data/model bundles made by scripts/share_data.py (shared via Google Drive, not git)
 shared/
+
+# scripts/compare_models.py: exact Frechet cache (large, recomputed when missing)
+results/*/exact_cache.npz
