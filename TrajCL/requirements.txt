@@ -8,6 +8,7 @@ torch_geometric==2.6.1
 torch_cluster==1.6.3+pt21cpu  # random walks for Node2Vec
 
 numpy==1.26.2
+psycopg[binary]
 h5py==3.11.0  # reads ../TSMini/data/rome_20200.h5
 pandas==2.2.3
 scikit_learn==1.5.2

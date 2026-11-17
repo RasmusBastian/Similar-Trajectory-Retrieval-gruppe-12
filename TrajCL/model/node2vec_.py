@@ -2,6 +2,7 @@ import sys
 sys.path.append('..')
 import time
 import logging
+import copy
 import pickle
 import torch
 from torch.utils.data import DataLoader
@@ -47,14 +48,6 @@ def train_node2vec(edge_index, start_cells = None):
     
 
     @torch.no_grad()
-    def load_checkpoint():
-        checkpoint = torch.load(checkpoint_file, map_location=Config.device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model.to(Config.device)
-        return
-
-
-    @torch.no_grad()
     def save_embeddings():
         embs = model().detach().cpu()  # saved on the CPU so the file also loads on machines without a GPU
         with open(embs_file, 'wb') as fh:
@@ -68,6 +61,7 @@ def train_node2vec(edge_index, start_cells = None):
     epoch_best = 0
     epoch_patience = 10
     epoch_worse_count = 0
+    best_state = None
 
     time_training = time.time()
     for epoch in range(epoch_total):
@@ -79,13 +73,14 @@ def train_node2vec(edge_index, start_cells = None):
             epoch_best = epoch
             epoch_train_loss_best = loss
             epoch_worse_count = 0
+            best_state = copy.deepcopy(model.state_dict())
             save_checkpoint()
         else:
             epoch_worse_count += 1
             if epoch_worse_count >= epoch_patience:
                 break
 
-    load_checkpoint()
+    model.load_state_dict(best_state)
     save_embeddings()
     logging.info("[node2vec] @={:.0f}, best_ep={}".format(time.time() - time_training, epoch_best))
     return

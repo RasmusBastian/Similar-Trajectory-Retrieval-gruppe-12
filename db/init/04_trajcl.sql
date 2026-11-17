@@ -8,6 +8,17 @@
 
 CREATE SCHEMA IF NOT EXISTS trajcl;
 
+-- TrajCL's bundled robustness-test inputs, split into individual trajectory rows.
+CREATE TABLE IF NOT EXISTS trajcl.test_trajectory (
+    dataset TEXT NOT NULL REFERENCES tsmini.dataset ON DELETE CASCADE,
+    variant TEXT NOT NULL CHECK (variant IN ('raw', 'downsampling', 'distort')),
+    rate    DOUBLE PRECISION NOT NULL DEFAULT 0,
+    role    TEXT NOT NULL CHECK (role IN ('query', 'database')),
+    idx     INT NOT NULL,
+    points  DOUBLE PRECISION[][] NOT NULL,
+    PRIMARY KEY (dataset, variant, rate, role, idx)
+);
+
 -- Output: embedding of every trajectory from a fine-tuned model (exp/embeddings_<dataset>.npz, made by TrajCL/embed.py).
 -- The L1 distance between two embeddings approximates the measure the model was fine-tuned on.
 CREATE TABLE IF NOT EXISTS trajcl.embedding (

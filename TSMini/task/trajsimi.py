@@ -73,6 +73,7 @@ class TrajSimi:
         
         best_epoch = 0
         best_hr_eval = 0
+        best_state = copy.deepcopy(self.encoder.state_dict())
         bad_counter = 0
         bad_patience = Config.trajsimi_training_bad_patience
 
@@ -145,6 +146,7 @@ class TrajSimi:
                 best_epoch = i_ep
                 best_hr_eval = hr_eval_ep
                 bad_counter = 0
+                best_state = copy.deepcopy(self.encoder.state_dict())
                 torch.save({"encoder": self.encoder.state_dict()}, self.checkpoint_filepath)
             else:
                 bad_counter += 1
@@ -156,8 +158,7 @@ class TrajSimi:
                 break
             
         # test
-        checkpoint = torch.load(self.checkpoint_filepath)
-        self.encoder.load_state_dict(checkpoint['encoder'])
+        self.encoder.load_state_dict(best_state)
         self.encoder.eval()
 
         test_starttime = time.time()

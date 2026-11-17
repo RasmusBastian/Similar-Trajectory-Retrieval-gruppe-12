@@ -81,8 +81,53 @@ def save_to_db(dataset):
     cmd = ['docker', 'compose', 'run', '--rm', '--build', 'trajcl-import', '--prefix', Config.dataset_prefix]
     print('\n=== saving to project database: {}'.format(' '.join(cmd)), flush=True)
     if subprocess.run(cmd, cwd=root).returncode != 0:
+        if database_mode():
+            sys.exit('saving required TrajCL inputs to the database failed; later stages cannot load them')
         print('WARNING: saving to the database failed. The files on disk are fine; run this again later:\n'
               '  cd {} && {}'.format(root, ' '.join(cmd)))
+
+
+def database_mode():
+    return (Config.dataset == 'beijing'
+            or os.environ.get('TRAINING_DATA_SOURCE', '').lower() in ('db', 'database')
+            or bool(os.environ.get('PGHOST')))
+
+
+def check_database_inputs(dataset_prefix):
+    from utils.data_loader import _db_connection
+    with _db_connection() as conn, conn.cursor() as cur:
+        cur.execute('''SELECT EXISTS (SELECT 1 FROM tsmini.dataset WHERE name = %s),
+                              EXISTS (SELECT 1 FROM tsmini.ground_truth_set WHERE dataset = %s AND measure = %s)''',
+                    (dataset_prefix, dataset_prefix, MEASURE))
+        has_dataset, has_truth = cur.fetchone()
+    if not has_dataset or not has_truth:
+        missing = 'trajectory dataset' if not has_dataset else 'Fréchet ground truth'
+        sys.exit(f'{missing} for {dataset_prefix} is missing from the database; import the dataset zip first')
+
+
+def database_step_exists(step, prefix):
+    """Use PostgreSQL as the cache index; never restore saved inputs to local files."""
+    from utils.data_loader import _db_connection
+    with _db_connection() as conn, conn.cursor() as cur:
+        if step == 'prepare':
+            cur.execute("SELECT count(DISTINCT (variant, rate)) = 11 FROM trajcl.test_trajectory WHERE dataset = %s", (prefix,))
+        elif step == 'node2vec':
+            cur.execute("""SELECT count(*) = 2 FROM trajcl.file WHERE path IN (%s, %s)""",
+                        (f'data/{prefix}_cell100_cellspace.pkl', f'data/{prefix}_cell100_embdim256_embs.pkl'))
+        elif step == 'pretrain':
+            cur.execute("SELECT EXISTS (SELECT 1 FROM trajcl.file WHERE path = %s)",
+                        (f'exp/snapshots/{prefix}_TrajCL_best.pt',))
+        elif step == 'finetune':
+            cur.execute("SELECT EXISTS (SELECT 1 FROM trajcl.file WHERE path = %s)",
+                        (f'exp/snapshots/{prefix}_trajsimi_TrajCL_frechet_best.pt',))
+        elif step == 'embed':
+            cur.execute("""SELECT EXISTS (
+                           SELECT 1 FROM trajcl.embedding e JOIN tsmini.dataset d ON d.name = e.dataset
+                           WHERE e.dataset = %s AND e.model = %s AND
+                                 (SELECT count(*) FROM trajcl.embedding x
+                                  WHERE x.dataset = e.dataset AND x.model = e.model) = d.n)""",
+                        (prefix, f'{prefix}_trajsimi_TrajCL_frechet_best.pt'))
+        return cur.fetchone()[0]
 
 
 def fmt(seconds):
@@ -101,12 +146,14 @@ def main():
                     help='after node2vec, finetune and embed, save results in the project DB (needs its db running)')
     args = ap.parse_args()
 
-    # check the inputs from TSMini before starting anything
     Config.update({'dataset': args.dataset})
     tsmini = os.path.join(HERE, '..', 'TSMini', 'data', Config.dataset_prefix)
-    for f in [tsmini + '.h5', tsmini + '_traj_simi_dict_{}.pkl'.format(MEASURE)]:
-        if not os.path.isfile(f):
-            sys.exit('missing input: {}\nrun ../TSMini/prepare_rome.py first (see the root README)'.format(f))
+    if database_mode():
+        check_database_inputs(Config.dataset_prefix)
+    else:
+        for f in [tsmini + '.h5', tsmini + '_traj_simi_dict_{}.pkl'.format(MEASURE)]:
+            if not os.path.isfile(f):
+                sys.exit('missing input: {}\nimport the Beijing zip or set database mode (see the root README)'.format(f))
 
     import torch
     print('device: {}'.format(torch.cuda.get_device_name(0) if torch.cuda.is_available()
@@ -119,7 +166,8 @@ def main():
         forced = STEPS[STEPS.index(args.start):]
     else:
         forced = []
-    todo = [s for s in STEPS if s in forced or (not forced and not os.path.isfile(outs[s]))]
+    todo = [s for s in STEPS if s in forced or (not forced and not (
+        database_step_exists(s, Config.dataset_prefix) if database_mode() else os.path.isfile(outs[s]))) ]
 
     print('\nsteps for {}:'.format(Config.dataset_prefix))
     for s in STEPS:
@@ -142,7 +190,7 @@ def main():
             sys.exit('step {} finished but its output is missing: {}'.format(s, outs[s]))
         timings.append((s, time.time() - t0))
         print('=== {}  done in {}'.format(s, fmt(timings[-1][1])), flush=True)
-        if args.save_db and s in ('node2vec', 'finetune', 'embed'):
+        if database_mode() or (args.save_db and s in ('node2vec', 'pretrain', 'finetune', 'embed')):
             save_to_db(args.dataset)
 
     print('\nall done in {}'.format(fmt(time.time() - t_all)))

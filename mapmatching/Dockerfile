@@ -1,6 +1,5 @@
-# Builds FMM, the map matching library used by legacy/telchar, from source.
-# legacy/telchar ships prebuilt binaries, but they need the exact Arch Linux libraries they were built
-# against (GDAL .so.38, Boost 1.89, Python 3.13). Ubuntu 22.04 matches FMM's build instructions
+# Build FMM from source so its native library matches the container environment.
+# Ubuntu 22.04 matches FMM's build instructions
 # (its CMake setup needs Python's distutils, which was removed in Python 3.12).
 FROM ubuntu:22.04
 
@@ -22,5 +21,5 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY match_beijing.py .
+COPY match_beijing.py schema.sql .
 ENTRYPOINT ["python", "match_beijing.py"]

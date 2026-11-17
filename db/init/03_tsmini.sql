@@ -1,19 +1,10 @@
--- TSMini (trajectory similarity learning, see TSMini/) on the Rome dataset: inputs and outputs.
+-- TSMini (trajectory similarity learning, see TSMini/): Beijing inputs and model outputs.
 -- Filled by TSMini/import_to_db.py (docker compose run --rm --build tsmini-import).
 -- Also run by that script, so it must stay re-runnable (IF NOT EXISTS / OR REPLACE).
 
 CREATE SCHEMA IF NOT EXISTS tsmini;
 
--- Input: map-matched Rome trajectories as delivered (matching_result.csv), before any filtering
-CREATE TABLE IF NOT EXISTS tsmini.rome_raw_trajectory (
-    traj_id  INT PRIMARY KEY,
-    node_ids BIGINT[] NOT NULL,                  -- Node_list
-    n_points INT NOT NULL,
-    geom     geometry(LineString, 4326)          -- Coor_list, NULL if it has fewer than 2 points
-);
-CREATE INDEX IF NOT EXISTS rome_raw_trajectory_geom_idx ON tsmini.rome_raw_trajectory USING gist (geom);
-
--- Input: a dataset in TSMini's format (data/<name>.h5), made by TSMini/prepare_rome.py
+-- Input: the Beijing dataset in TSMini's format (data/<name>.h5)
 CREATE TABLE IF NOT EXISTS tsmini.dataset (
     name       TEXT PRIMARY KEY,                 -- e.g. rome_20200
     n          INT NOT NULL,                     -- number of trajectories
@@ -26,7 +17,6 @@ CREATE TABLE IF NOT EXISTS tsmini.dataset (
 CREATE TABLE IF NOT EXISTS tsmini.trajectory (
     dataset        TEXT NOT NULL REFERENCES tsmini.dataset ON DELETE CASCADE,
     idx            INT NOT NULL,
-    source_traj_id INT,                          -- traj_id in rome_raw_trajectory, NULL if unknown
     split          TEXT NOT NULL CHECK (split IN ('train', 'eval', 'test', 'unused')),
     n_points       INT NOT NULL,
     geom           geometry(LineString, 3857) NOT NULL,  -- exactly the points TSMini sees (Web Mercator)
@@ -34,6 +24,7 @@ CREATE TABLE IF NOT EXISTS tsmini.trajectory (
     PRIMARY KEY (dataset, idx)
 );
 CREATE INDEX IF NOT EXISTS trajectory_geom_wgs84_idx ON tsmini.trajectory USING gist (geom_wgs84);
+ALTER TABLE tsmini.trajectory DROP COLUMN IF EXISTS source_traj_id;
 
 -- Input: ground-truth distances TSMini trains on (data/<dataset>_traj_simi_dict_<measure>.pkl)
 CREATE TABLE IF NOT EXISTS tsmini.ground_truth_set (

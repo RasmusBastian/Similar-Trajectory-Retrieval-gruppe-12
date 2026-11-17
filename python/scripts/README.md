@@ -1,3 +1,3 @@
 # scripts
 
-One-off scripts (data import, synthetic trajectory generation, evaluation). Run from the `python/` folder, e.g. `python -m scripts.<name>`.
+Python helper scripts. Dataset ZIP packing, unpacking, and PostgreSQL import are handled by the repository-root `scripts/share_data.py`.

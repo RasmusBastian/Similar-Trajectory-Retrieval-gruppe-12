@@ -21,6 +21,8 @@ Connection settings come from the PG* environment variables.
 import argparse
 import glob
 import os
+import pickle
+import re
 import sys
 
 import numpy as np
@@ -58,7 +60,7 @@ def ensure_tsmini_dataset(cur, prefix):
         return False
     sys.path.insert(0, TSMINI_ROOT)
     from import_to_db import import_dataset, import_ground_truth  # TSMini's importer
-    n = import_dataset(cur, prefix, h5, None)
+    n = import_dataset(cur, prefix, h5)
     for pkl in sorted(glob.glob(os.path.join(TSMINI_ROOT, "data", f"{prefix}_traj_simi_dict_*.pkl"))):
         import_ground_truth(cur, prefix, os.path.basename(pkl)[len(prefix + "_traj_simi_dict_"):-len(".pkl")], pkl, n)
     return True
@@ -68,7 +70,7 @@ def saved_files(root, prefix):
     paths = (glob.glob(os.path.join(root, "data", f"{prefix}_cell*_cellspace.pkl"))
              + glob.glob(os.path.join(root, "data", f"{prefix}_cell*_embs.pkl"))
              + glob.glob(os.path.join(root, "exp", "snapshots", f"{prefix}_*.pt")))
-    return sorted(paths)
+    return sorted(path for path in paths if os.path.isfile(path))
 
 
 def import_files(cur, root, prefix):
@@ -86,12 +88,38 @@ def import_files(cur, root, prefix):
         print(f"  file: {rel} ({size / 1e6:.1f} MB)")
 
 
-def import_logs(cur, root):
+def import_test_inputs(cur, root, prefix):
+    for path in sorted(glob.glob(os.path.join(root, "data", f"{prefix}_newsimi_*.pkl"))):
+        name = os.path.basename(path)[len(prefix + "_newsimi_"):-len(".pkl")]
+        if name == "raw":
+            variant, rate = "raw", 0.0
+        else:
+            match = re.fullmatch(r"(downsampling|distort)_([0-9.]+)", name)
+            if not match:
+                print(f"  test input: unrecognized name {name}, skipping")
+                continue
+            variant, rate = match.group(1), float(match.group(2))
+        with open(path, "rb") as f:
+            queries, database = pickle.load(f)
+        cur.execute("DELETE FROM trajcl.test_trajectory WHERE dataset = %s AND variant = %s AND rate = %s",
+                    (prefix, variant, rate))
+        with cur.copy("COPY trajcl.test_trajectory (dataset, variant, rate, role, idx, points) FROM STDIN WITH (FORMAT binary)") as copy:
+            copy.set_types(["text", "text", "float8", "text", "int4", "float8[]"])
+            for role, sequences in (("query", queries), ("database", database)):
+                for idx, points in enumerate(sequences):
+                    copy.write_row((prefix, variant, rate, role, idx, points))
+        print(f"  test input: {variant} {rate:g} ({len(queries)} queries, {len(database)} database trajectories)")
+
+
+def import_logs(cur, root, prefix):
     for path in sorted(glob.glob(os.path.join(root, "exp", "log", "*.log"))):
         with open(path, encoding="utf-8", errors="replace") as f:
-            cur.execute("INSERT INTO trajcl.training_log (file_name, content) VALUES (%s, %s) "
+            content = f.read()
+        if prefix not in content and prefix not in os.path.basename(path):
+            continue
+        cur.execute("INSERT INTO trajcl.training_log (file_name, content) VALUES (%s, %s) "
                         "ON CONFLICT (file_name) DO UPDATE SET content = EXCLUDED.content",
-                        (os.path.basename(path), f.read()))
+                    (os.path.basename(path), content))
         print(f"  training_log: {os.path.basename(path)}")
 
 
@@ -132,7 +160,8 @@ def restore(cur, root, prefix, force):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default=HERE, help="TrajCL folder")
+    ap.add_argument("--root", default=os.environ.get("BEIJING_DATA_ROOT", HERE), help="TrajCL bundle folder")
+    ap.add_argument("--data-root", default=os.environ.get("BEIJING_DATA_ROOT", ""), help="optional folder containing bundled TrajCL/data/<prefix>* inputs")
     ap.add_argument("--prefix", default="beijing_20200", help="dataset prefix, e.g. rome_20200 or beijing_20200")
     ap.add_argument("--restore", action="store_true", help="write the saved files back to disk instead")
     ap.add_argument("--force", action="store_true", help="with --restore: overwrite files that already exist")
@@ -152,7 +181,9 @@ def main():
             cur.execute(f.read())
         print("files:")
         import_files(cur, args.root, args.prefix)
-        import_logs(cur, args.root)
+        if args.data_root:
+            import_test_inputs(cur, args.data_root, args.prefix)
+        import_logs(cur, args.root, args.prefix)
         npz = os.path.join(args.root, "exp", f"embeddings_{args.prefix}.npz")
         if not os.path.isfile(npz):
             print(f"  {npz} not found, skipping embeddings (run embed.py after fine-tuning)")

@@ -12,21 +12,19 @@ The only requirement is [Docker Desktop](https://www.docker.com/products/docker-
 docker compose up -d
 ```
 
-This starts three containers:
+This starts PostgreSQL only. It creates an empty database and applies the schemas in `db/init/`:
 
 | Service | What it does | Where |
 |---|---|---|
 | `db` | PostgreSQL 17 + PostGIS | `localhost:5433` (user `str`, password `str`, database `trajectories`) |
-| `importer` | Imports the road network and travel times from `legacy/` into `db`, then exits. Skipped if the data is already there | — |
-| `api` | The C# API | <http://localhost:5038/health> |
 
-The first start takes a few minutes (downloading images and building), later starts take seconds.
+Start the API separately when needed: `docker compose --profile api up -d --build api`.
 
 ```bash
 docker compose ps                  # status
-docker compose logs -f api         # follow the API log
+docker compose --profile api logs -f api  # follow the API log
 docker compose down                # stop (data is kept)
-docker compose down -v             # stop and delete the database (next up re-creates and re-imports)
+docker compose down -v             # stop and delete the database (next up re-creates the empty schemas)
 docker compose up -d --build       # rebuild after code changes
 ```
 
@@ -49,11 +47,9 @@ src/
 tests/
   TrajectoryRetrieval.Tests/  xUnit tests
 python/
-  trajectory_algorithms/      Algorithm-heavy code (similarity, embeddings, ...)
-  scripts/                    One-off scripts (import, data generation, evaluation)
-db/init/                      Database schema, applied when the database is first created
-docker-compose.yml            Local environment: database, data import and API
-legacy/                       Previous group's code and data (see legacy/README.md)
+  scripts/                    Data bundle pack/import tools
+db/init/                      PostGIS, TSMini and TrajCL schemas (applied to a new database)
+docker-compose.yml            PostgreSQL and optional API/data-import jobs
 ```
 
 Everything other groups are responsible for sits behind an interface in `Core/Abstractions`
@@ -63,46 +59,38 @@ through dependency injection in `Program.cs`. `ITrajectoryRetriever` is our own 
 
 ## Data
 
-The database schema is in [db/init/01_schema.sql](db/init/01_schema.sql).
-
-| Table | Content |
-|---|---|
-| `vertex` | Road network nodes: `node_id`, `longitude`, `latitude`, `geom` (PostGIS point) |
-| `edge` | Road segments: `edge_id`, `start_node`, `end_node`, `geom` (straight line), `length_m` |
-| `edge_travel_time` | Cleaned travel times for days 3–7: one row per `(day, edge_id)`, `seconds[1..288]` per 5-minute slot (`seconds[1]` = 00:00–00:05) |
-| `trajectory`, `trajectory_edge` | Trajectories as ordered edge sequences (empty for now) |
-
-Edges 22748–22751 have no travel times in the source data.
-
-Example: travel time of edge 0 at 08:00 on day 7 (slot = hour × 12 + minute / 5 + 1):
-
-```sql
-SELECT seconds[97] FROM edge_travel_time WHERE day = 7 AND edge_id = 0;
-```
+Database initialization installs PostGIS and creates only the `tsmini` and `trajcl` schemas.
+There are no Harbin road-network or travel-time tables in the project database.
 
 ### Beijing data for TSMini and TrajCL
 
-The Beijing dataset lives in the shared aSTEP database ([astep-aau/data](https://github.com/astep-aau/data)),
-not in ours. Run it locally next to this repo on port 5434 (5432 is often taken by a native PostgreSQL):
+Start PostgreSQL, then download a dataset zip and import it. Import verifies the zip in a temporary folder,
+loads it into PostgreSQL, and removes the temporary files. It does not populate `TSMini/data` or `TrajCL/data`.
 
-```bash
-git clone https://github.com/astep-aau/data.git ../astep-data && cd ../astep-data
-cp .env.example .env                  # then set POSTGRES_PORT=5434
-docker compose up -d --build          # downloads ~6 GB and imports it, about 35 min the first time
+```powershell
+docker compose up -d db
+python scripts/share_data.py import "C:\path\to\beijing_20200_<date>_<name>.zip"
 ```
 
-Add `SHARED_DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5434/data` to this repo's `.env`
-if you use another port. Then build the model inputs (training itself is separate):
+TSMini trajectories and Fréchet ground truth go into `tsmini.dataset`, `tsmini.trajectory`, and
+`tsmini.ground_truth`; TrajCL's bundled test inputs are split into rows in `trajcl.test_trajectory`. Beijing model
+commands use PostgreSQL as their input source. The query command does not need local dataset or checkpoint files.
 
-```bash
-docker compose run --rm --build beijing-export   # -> TSMini/data/beijing_matching_result.csv (50,000 trajectories)
-cd TSMini && python prepare_rome.py --matching data/beijing_matching_result.csv --prefix beijing_20200
-cd ../TrajCL && python prepare_beijing.py
+Beijing model loaders select PostgreSQL automatically. The connection defaults to localhost port 5433, database
+`trajectories`, user/password `str`. Override these in PowerShell only if your Docker database uses different settings:
+
+```powershell
+$env:PGHOST = "localhost"
+$env:PGPORT = "5433"
+$env:PGUSER = "str"
+$env:PGPASSWORD = "str"
+$env:PGDATABASE = "trajectories"
+$env:TRAINING_DATA_SOURCE = "db"
 ```
 
-`export_beijing.py` builds each trajectory from its map-matched `road_points` (edge end nodes), because
-`gps_points` usually only has the start and end point. It keeps trajectories with 20–200 points that lie
-inside central Beijing (116.20–116.55 E, 39.75–40.03 N, the `beijing` area in `TrajCL/config.py`).
+Run TrajCL's full pipeline with `python TrajCL/train_pipeline.py --dataset beijing` from the repository
+root. It checks PostgreSQL for completed stages and saves newly generated model artifacts to the database.
+TSMini training can be run with `python train_trajsimi.py --dataset beijing` from `TSMini/`.
 
 ### Sharing data and models with the team
 
@@ -112,16 +100,34 @@ Google Drive folder. `scripts/share_data.py` only needs plain Python (no venv):
 ```bash
 python scripts/share_data.py pack --prefix beijing_20200   # -> shared/beijing_20200_<date>_<name>.zip, upload it
 python scripts/share_data.py list shared/<file>.zip         # who packed it, which models are inside
-python scripts/share_data.py unpack shared/<file>.zip       # files land where TSMini/TrajCL expect them
-docker compose run --rm --build tsmini-import --prefix beijing_20200   # then load into your local database
-docker compose run --rm --build trajcl-import --prefix beijing_20200
+python scripts/share_data.py import shared/<file>.zip       # load into your local database; no local data copies
 ```
 
-Workflow: download the newest zip → unpack → train your part → `pack` → upload. The zip holds the trajectories,
+Workflow: download the newest zip → import → train your part → `pack` → upload. The zip holds the trajectories,
 ground truth, TrajCL's node2vec cell embeddings, all trained models (`.pt`), embeddings and logs, each with a
-checksum. Unpack only adds what you don't have and never overwrites a file that differs from yours (e.g. your own
-newer model) unless you pass `--force`. Model file names are fixed, so **agree who trains which model** before
-starting, otherwise two people's checkpoints of the same model conflict.
+checksum. `import` leaves no local data copies; use `unpack` only when a workflow explicitly requires local files.
+Model file names are fixed, so **agree who trains which model** before starting, otherwise two people's checkpoints
+of the same model conflict.
+
+### Sharing an exact database snapshot
+
+The full PostgreSQL snapshot includes the Beijing training inputs, trained model files, embeddings, test inputs,
+and logs. Create and checksum a fresh compressed snapshot with:
+
+```powershell
+python scripts/database_dump.py dump shared/beijing_20200_20261117.dump
+```
+
+Share both the `.dump` and adjacent `.sha256` file. A teammate starts PostgreSQL, puts both files in `shared/`,
+then restores the snapshot with:
+
+```powershell
+docker compose up -d db
+python scripts/database_dump.py restore shared/beijing_20200_20261117.dump
+```
+
+Restore replaces the contents of that local `trajectories` database. The script checks the checksum and streams the
+archive into PostgreSQL without unpacking it to a data folder.
 
 ### TrajCL (schema `trajcl`)
 
@@ -132,34 +138,31 @@ are only in `tsmini`; `trajcl.embedding.idx` is `tsmini.trajectory.idx`.
 
 ### TSMini (schema `tsmini`)
 
-Inputs and outputs of [TSMini](TSMini/) on the Rome data, in [db/init/03_tsmini.sql](db/init/03_tsmini.sql).
-They are not in git (too large), so they are imported from the files on the PC that trained the model:
-
-```bash
-docker compose run --rm --build tsmini-import              # imports what is not there yet (~2 min)
-docker compose run --rm --build tsmini-import --replace    # deletes and re-imports everything
-```
-
-It reads `TSMini/data/`, `TSMini/exp/` and the raw `matching_result.csv` from `ROME_MATCHING_DIR`
-(default `../ST2Vec/data/rome/st_traj/st_traj`, change it in `.env`).
+Inputs and outputs of [TSMini](TSMini/) in [db/init/03_tsmini.sql](db/init/03_tsmini.sql).
+The zip import command above loads Beijing trajectories, model outputs, and logs into PostgreSQL without leaving local
+copies. The low-level TSMini importer can still be run directly, but expects files under `TSMini/data/` and `TSMini/exp/`.
+For teammates, use the ZIP import command above.
 
 | Table | Content |
 |---|---|
-| `rome_raw_trajectory` | Input: the map-matched Rome trajectories from `matching_result.csv` (54,482), as `geom` (WGS84) and `node_ids` |
-| `dataset`, `trajectory` | Input: `data/rome_20200.h5`, the 40,426 trajectories TSMini uses, with `split` (train/eval/test/unused) and `source_traj_id` linking back to the raw trajectory |
-| `ground_truth_set`, `ground_truth` | Input: Fréchet distances TSMini trains on. One row per trajectory in a split, `distances[j + 1]` = metres to row `j` of the same split |
+| `dataset`, `trajectory` | Input: Beijing trajectories from `data/beijing_20200.h5`, with train/eval/test/unused splits |
+| `ground_truth_set`, `ground_truth` | Input: Fréchet distances TSMini trains on, split into train/eval/test rows |
 | `embedding` | Output: the 128-number embedding of every trajectory |
 | `training_log` | Output: `exp/log/*.log` |
 | `file` | Output: the trained model (`exp/snapshots/*.pt`) and plots, as `bytea` |
 
-Top 10 most similar trajectories to trajectory 5 (pgAdmin's Geometry Viewer or DBeaver can show `geom_wgs84` on a map):
+Run from PowerShell in the repository root after `docker compose up -d db`. This prints the embedding rank, L1 distance, exact route Frechet distance in metres, whether each match is in the true exact top 10, and the top-50 reranking recall. Exact Frechet is calculated against all Beijing trajectories; the database is only read:
 
-```sql
-SELECT * FROM tsmini.similar('rome_20200', 5);
+```powershell
+python scripts/query_models.py --model tsmini --idx 210
+python scripts/query_models.py --model trajcl --idx 210
 ```
 
-The source CSV files stay in `legacy/` (paths in `src/TrajectoryRetrieval.Api/appsettings.json`
-and `python/trajectory_algorithms/paths.py`).
+Replace `210` with a trajectory index from `0` to `49933`. Use `--k 5` to show 5 embedding matches or `--rerank 100` to rerank the nearest 100 embedding candidates. The query is by an existing trajectory index, not a new raw GPS route.
+
+TSMini inputs use `tsmini.dataset`, `tsmini.trajectory`, and `tsmini.ground_truth`. TrajCL's robustness inputs
+use `trajcl.test_trajectory`; cell-space data and model files
+are stored in `trajcl.file`. Set `PGHOST=localhost` and `TRAINING_DATA_SOURCE=db` to load model inputs from PostgreSQL.
 
 ## C#
 

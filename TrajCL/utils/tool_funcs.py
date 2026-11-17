@@ -9,6 +9,13 @@ import psutil
 from sklearn.preprocessing import label_binarize
 from datetime import datetime, timezone, timedelta
 
+
+def _database_mode():
+    from config import Config
+    return (Config.dataset == 'beijing'
+            or os.environ.get('TRAINING_DATA_SOURCE', '').lower() in ('db', 'database')
+            or bool(os.environ.get('PGHOST')))
+
 try:
     nvmlInit() # need initializztion here
     _NVML_OK = True
@@ -29,8 +36,52 @@ def load_cell_embs(path):
                 return lambda b: torch.load(io.BytesIO(b), map_location='cpu', weights_only=False)
             return super().find_class(module, name)
 
+    if _database_mode():
+        import psycopg
+        with psycopg.connect(
+            host=os.environ.get('PGHOST', 'localhost'), port=os.environ.get('PGPORT', '5433'),
+            user=os.environ.get('PGUSER', 'str'), password=os.environ.get('PGPASSWORD', 'str'),
+            dbname=os.environ.get('PGDATABASE', 'trajectories')) as conn, conn.cursor() as cur:
+            cur.execute('SELECT content FROM trajcl.file WHERE path = %s', ('data/' + os.path.basename(path),))
+            row = cur.fetchone()
+        if row is None:
+            raise RuntimeError(f"data/{os.path.basename(path)} is not imported into trajcl.file")
+        return _CPUUnpickler(io.BytesIO(row[0])).load()
     with open(path, 'rb') as fh:
         return _CPUUnpickler(fh).load()
+
+
+def load_checkpoint(path, map_location):
+    """Load a trained TrajCL checkpoint from PostgreSQL in database mode."""
+    import io
+    import torch
+    if _database_mode():
+        import psycopg
+        rel = 'exp/snapshots/' + os.path.basename(path)
+        with psycopg.connect(
+            host=os.environ.get('PGHOST', 'localhost'), port=os.environ.get('PGPORT', '5433'),
+            user=os.environ.get('PGUSER', 'str'), password=os.environ.get('PGPASSWORD', 'str'),
+            dbname=os.environ.get('PGDATABASE', 'trajectories')) as conn, conn.cursor() as cur:
+            cur.execute('SELECT content FROM trajcl.file WHERE path = %s', (rel,))
+            row = cur.fetchone()
+        if row is None:
+            raise RuntimeError(f'{rel} is not imported into trajcl.file')
+        return torch.load(io.BytesIO(row[0]), map_location=map_location, weights_only=False)
+    return torch.load(path, map_location=map_location, weights_only=False)
+
+
+def save_embeddings(dataset, model, embeddings):
+    """Persist freshly computed embeddings directly to PostgreSQL in database mode."""
+    import psycopg
+    with psycopg.connect(
+        host=os.environ.get('PGHOST', 'localhost'), port=os.environ.get('PGPORT', '5433'),
+        user=os.environ.get('PGUSER', 'str'), password=os.environ.get('PGPASSWORD', 'str'),
+        dbname=os.environ.get('PGDATABASE', 'trajectories')) as conn, conn.cursor() as cur:
+        cur.execute('DELETE FROM trajcl.embedding WHERE dataset = %s AND model = %s', (dataset, model))
+        with cur.copy('COPY trajcl.embedding (dataset, model, idx, embedding) FROM STDIN WITH (FORMAT binary)') as copy:
+            copy.set_types(['text', 'text', 'int4', 'float4[]'])
+            for idx, vector in enumerate(embeddings):
+                copy.write_row((dataset, model, idx, vector.tolist()))
 
 
 def mean(x):

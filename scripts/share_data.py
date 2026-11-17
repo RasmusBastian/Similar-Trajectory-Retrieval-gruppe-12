@@ -6,10 +6,11 @@ Only needs the Python standard library. Run from anywhere; paths are relative to
     python scripts/share_data.py pack --prefix beijing_20200    # -> shared/beijing_20200_<date>_<name>.zip
     python scripts/share_data.py list shared/<file>.zip          # who packed it and what is inside
     python scripts/share_data.py unpack shared/<file>.zip        # put the files in place (add --force, see below)
+    python scripts/share_data.py import shared/<file>.zip        # unpack and import into PostgreSQL
 
-Workflow: pack -> upload the zip to the team's Google Drive folder -> teammates download and unpack ->
-train -> pack again -> upload. Unpack never overwrites a local file that differs from the one in the zip
-(e.g. your own newer model) unless you pass --force, so agree who trains which model.
+Workflow: pack -> upload the zip to the team's shared folder -> teammates download and import into PostgreSQL.
+`import` verifies the zip in a temporary directory and removes those files afterward. `unpack` is available
+only when someone explicitly needs a working local copy for training.
 
 Packed (only what exists), for prefix P:
     TSMini/data/P.h5, TSMini/data/P_traj_simi_dict_*.pkl           trajectories and ground truth
@@ -184,6 +185,37 @@ def unpack(args):
     print(f"  docker compose run --rm --build trajcl-import --prefix {p}")
 
 
+def import_zip(args):
+    """Verify and import a bundle through a temporary directory, leaving no local data copies."""
+    with zipfile.ZipFile(args.zip) as z:
+        manifest = read_manifest(z)
+        prefix = manifest["prefix"]
+        with tempfile.TemporaryDirectory(prefix="beijing-db-import-") as temp_root:
+            for rel, info in manifest["files"].items():
+                if rel.startswith("/") or ".." in rel.split("/"):
+                    sys.exit(f"refusing unsafe path in zip: {rel}")
+                path = os.path.join(temp_root, *rel.split("/"))
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                h = hashlib.sha256()
+                with z.open(rel) as src, open(path, "wb") as dst:
+                    for chunk in iter(lambda: src.read(1 << 20), b""):
+                        h.update(chunk)
+                        dst.write(chunk)
+                if os.path.getsize(path) != info["size"] or h.hexdigest() != info["sha256"]:
+                    sys.exit(f"checksum mismatch for {rel}, the zip is damaged (download it again)")
+                print(f"  verified {rel} ({mb(info['size'])})", flush=True)
+
+            env = os.environ.copy()
+            env["BEIJING_DATA_DIR"] = temp_root.replace(os.sep, "/")
+            for service in ("tsmini-import", "trajcl-import"):
+                cmd = ["docker", "compose", "run", "--rm", "--build", service, "--prefix", prefix]
+                print("\nImporting zip data: " + " ".join(cmd), flush=True)
+                result = subprocess.run(cmd, cwd=ROOT, env=env)
+                if result.returncode:
+                    sys.exit(result.returncode)
+    print("Temporary import files removed; imported data remains in PostgreSQL.")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -198,6 +230,9 @@ def main():
     a.add_argument("zip")
     a.add_argument("--force", action="store_true", help="replace local files that differ from the zip")
     a.set_defaults(fn=unpack)
+    a = sub.add_parser("import", help="load a data zip into PostgreSQL without keeping local copies")
+    a.add_argument("zip", help="bundle created by scripts/share_data.py pack")
+    a.set_defaults(fn=import_zip)
     args = ap.parse_args()
     args.fn(args)
 

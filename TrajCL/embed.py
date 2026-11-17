@@ -13,7 +13,6 @@ Writes  exp/embeddings_<prefix>.npz   emb: [n, 256] float32, row i = trajectory 
 """
 import argparse
 import os
-import pickle
 import sys
 import time
 from types import SimpleNamespace
@@ -26,6 +25,7 @@ from config import Config
 from model.trajcl import TrajCL
 from task.trajsimi import TrajSimi, TrajSimiRegression
 from utils import tool_funcs
+from utils.data_loader import _database_trajectories, _use_database, load_pickle
 
 
 def main():
@@ -42,7 +42,7 @@ def main():
     if not os.path.isfile(ckpt):
         sys.exit('fine-tuned model not found: {} (run train_trajsimi.py, or import_to_db.py --restore)'.format(ckpt))
 
-    state = torch.load(ckpt, map_location=Config.device)
+    state = tool_funcs.load_checkpoint(ckpt, map_location=Config.device)
     encoder = TrajCL()
     encoder.clmodel.encoder_q.load_state_dict(state['encoder_q'])
     encoder.to(Config.device).eval()
@@ -51,9 +51,12 @@ def main():
     head.to(Config.device).eval()
 
     # the batch generator only needs the cell space and cell embeddings from its TrajSimi instance
-    ctx = SimpleNamespace(cellspace=pickle.load(open(Config.dataset_cell_file, 'rb')),
+    ctx = SimpleNamespace(cellspace=load_pickle(Config.dataset_cell_file),
                           cellembs=tool_funcs.load_cell_embs(Config.dataset_embs_file).to(Config.device))
-    trajs = pd.read_pickle(Config.dataset_file).merc_seq.values
+    if _use_database():
+        trajs = _database_trajectories(Config.dataset_prefix).merc_seq.values
+    else:
+        trajs = pd.read_pickle(Config.dataset_file).merc_seq.values
 
     t0 = time.time()
     outs = []
@@ -65,9 +68,13 @@ def main():
                       flush=True)
     emb = torch.cat(outs).numpy().astype(np.float32)
 
-    out = '{}/exp/embeddings_{}.npz'.format(Config.root_dir, Config.dataset_prefix)
-    np.savez(out, emb=emb, model=os.path.basename(ckpt))
-    print('wrote {} ({} x {}) in {:.0f}s'.format(out, *emb.shape, time.time() - t0))
+    if _use_database():
+        tool_funcs.save_embeddings(Config.dataset_prefix, os.path.basename(ckpt), emb)
+        print('saved {} x {} embeddings to PostgreSQL in {:.0f}s'.format(*emb.shape, time.time() - t0))
+    else:
+        out = '{}/exp/embeddings_{}.npz'.format(Config.root_dir, Config.dataset_prefix)
+        np.savez(out, emb=emb, model=os.path.basename(ckpt))
+        print('wrote {} ({} x {}) in {:.0f}s'.format(out, *emb.shape, time.time() - t0))
 
 
 if __name__ == '__main__':

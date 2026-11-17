@@ -26,11 +26,30 @@ from utils.preprocessing_porto import generate_newsimi_test_dataset, init_cellsp
 from utils.tool_funcs import lonlat2meters
 
 
+def database_mode():
+    return (Config.dataset == 'beijing'
+            or os.environ.get('TRAINING_DATA_SOURCE', '').lower() in ('db', 'database')
+            or bool(os.environ.get('PGHOST')))
+
+
 def load_trajectories(h5_path):
-    with h5py.File(h5_path, 'r') as f:
-        n = int(f.attrs['n'])
-        x_min, x_max, y_min, y_max = f.attrs['merc_range'][()].tolist()
-        merc_seq = [f['/trajs_merc/{}'.format(i)][:].tolist() for i in range(n)]
+    if database_mode():
+        from utils.data_loader import _database_trajectories, _db_connection
+        prefix = os.path.basename(h5_path).removesuffix('.h5')
+        df = _database_trajectories(prefix)
+        with _db_connection() as conn, conn.cursor() as cur:
+            cur.execute('SELECT merc_range FROM tsmini.dataset WHERE name = %s', (prefix,))
+            row = cur.fetchone()
+            if row is None:
+                raise RuntimeError(f'Dataset {prefix!r} is not imported into tsmini.dataset')
+            x_min, x_max, y_min, y_max = row[0]
+        merc_seq = df.merc_seq.tolist()
+        n = len(merc_seq)
+    else:
+        with h5py.File(h5_path, 'r') as f:
+            n = int(f.attrs['n'])
+            x_min, x_max, y_min, y_max = f.attrs['merc_range'][()].tolist()
+            merc_seq = [f['/trajs_merc/{}'.format(i)][:].tolist() for i in range(n)]
 
     # Config's area is what the cell space is built from, and it must cover every point
     low = lonlat2meters(Config.min_lon, Config.min_lat)
@@ -63,7 +82,8 @@ def main(dataset='rome'):
 
     for measure in args.measures:
         name = '_traj_simi_dict_{}.pkl'.format(measure)
-        shutil.copyfile(src + name, Config.dataset_file + name)
+        if not database_mode():
+            shutil.copyfile(src + name, Config.dataset_file + name)
         logging.info('copied %s', name)
 
     generate_newsimi_test_dataset()

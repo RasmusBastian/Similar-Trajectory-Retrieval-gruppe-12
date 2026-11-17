@@ -1,4 +1,4 @@
-"""Map-match Beijing trajectories with last year's map matching (FMM STMatch, see legacy/telchar) and store them.
+"""Map-match Beijing trajectories with FMM STMatch and store them.
 
 Input is read from the shared aSTEP database (astep-aau/data): the road network (osm_edges) and the trips
 (trajectories). The Beijing trips only contain a start and an end GPS point, plus the road segments the
@@ -6,7 +6,7 @@ trip drove on (road_points, already map-matched by the dataset authors). We ther
 by sampling points along those road segments, map-match the trace with FMM, and compare the matched path
 with the known road segments. Results go to bj_matched_trajectory in our own database.
 
-Runs as the `mapmatching` service in docker-compose.yml: docker compose run --rm mapmatching --limit 1000
+This experiment is not included in the current docker-compose.yml services.
 """
 
 import argparse
@@ -24,12 +24,12 @@ from pyproj import Transformer
 
 from fmm import STMATCH, GPSConfig, Network, NetworkGraph, ResultConfig, STMATCHConfig
 
-SCHEMA_SQL = Path(os.environ.get("SCHEMA_SQL", "/app/sql/02_beijing_map_matching.sql"))
+SCHEMA_SQL = Path(os.environ.get("SCHEMA_SQL", Path(__file__).with_name("schema.sql")))
 METRIC_CRS = "EPSG:32650"  # UTM zone 50N, covers Beijing
 
 # STMatch parameters are in the units of the network, and the Beijing network is in degrees (EPSG:4326).
 CONFIGS = {
-    # What legacy/telchar/main.py uses: the FMM defaults (300 radius, 50 GPS error, 30 max speed), meant for meters
+    # Previous FMM defaults (300 radius, 50 GPS error, 30 max speed), meant for meters
     "legacy": lambda: STMATCHConfig(),
     # The same values in degrees: about 300 m radius, 50 m GPS error and 30 m/s max speed
     "degrees": lambda: STMATCHConfig(8, 0.003, 0.0005, 0.0003, 1.5),
@@ -96,7 +96,7 @@ def simulate_gps(road_points: list, edges_m: dict, interval: float, noise: float
 
 
 def run_stmatch(model: STMATCH, gps_file: Path, result_file: Path, config: STMATCHConfig) -> pd.DataFrame:
-    """Same FMM calls as process_single_day in legacy/telchar/main.py."""
+    """Run FMM STMatch with the selected parameter set."""
     gps_config = GPSConfig()
     gps_config.file = str(gps_file)
     gps_config.id = "id"

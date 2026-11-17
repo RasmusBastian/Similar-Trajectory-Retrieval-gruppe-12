@@ -3,6 +3,7 @@ sys.path.append('..')
 
 import time
 import logging
+import copy
 import pickle
 import torch
 import torch.nn as nn
@@ -13,7 +14,7 @@ from functools import partial
 from config import Config
 from model.moco import MoCo
 from model.dual_attention import DualSTB
-from utils.data_loader import read_traj_dataset
+from utils.data_loader import read_traj_dataset, load_pickle
 from utils.traj import *
 from utils import tool_funcs
 
@@ -69,7 +70,7 @@ class TrajCL(nn.Module):
 
     def load_checkpoint(self):
         checkpoint_file = '{}/{}_TrajCL_best{}.pt'.format(Config.checkpoint_dir, Config.dataset_prefix, Config.dumpfile_uniqueid)
-        checkpoint = torch.load(checkpoint_file, map_location=Config.device)
+        checkpoint = tool_funcs.load_checkpoint(checkpoint_file, map_location=Config.device)
         self.load_state_dict(checkpoint['model_state_dict'])
         return self
 
@@ -134,7 +135,7 @@ class TrajCLTrainer:
         self.aug2 = get_aug_fn(str_aug2)
 
         self.embs = tool_funcs.load_cell_embs(Config.dataset_embs_file).detach() # tensor, on the CPU
-        self.cellspace = pickle.load(open(Config.dataset_cell_file, 'rb'))
+        self.cellspace = load_pickle(Config.dataset_cell_file)
 
         train_dataset, _, _ = read_traj_dataset(Config.dataset_file)
         self.train_dataloader = DataLoader(train_dataset, 
@@ -231,29 +232,27 @@ class TrajCLTrainer:
         self.model.eval()
 
         # varying db size
-        with open(Config.dataset_file + '_newsimi_raw.pkl', 'rb') as fh:
-            q_lst, db_lst = pickle.load(fh)
-            querys, databases = self.test_merc_seq_to_embs(q_lst, db_lst)
-            dists = torch.cdist(querys, databases, p = 1) # [1000, 100000]
-            targets = torch.diag(dists) # [1000]
-            results = []
-            for n_db in [databases.shape[0] * i // 5 for i in range(1, 6)]: # 20000..100000 on porto
-                rank = torch.sum(torch.le(dists[:,0:n_db].T, targets)).item() / len(q_lst)
-                results.append(rank)
-            logging.info('[EXPFlag]task=newsimi,encoder=TrajCL,varying=dbsize,r1={:.3f},r2={:.3f},r3={:.3f},r4={:.3f},r5={:.3f}' \
-                                            .format(*results))
+        q_lst, db_lst = load_pickle(Config.dataset_file + '_newsimi_raw.pkl')
+        querys, databases = self.test_merc_seq_to_embs(q_lst, db_lst)
+        dists = torch.cdist(querys, databases, p = 1) # [1000, 100000]
+        targets = torch.diag(dists) # [1000]
+        results = []
+        for n_db in [databases.shape[0] * i // 5 for i in range(1, 6)]: # 20000..100000 on porto
+            rank = torch.sum(torch.le(dists[:,0:n_db].T, targets)).item() / len(q_lst)
+            results.append(rank)
+        logging.info('[EXPFlag]task=newsimi,encoder=TrajCL,varying=dbsize,r1={:.3f},r2={:.3f},r3={:.3f},r4={:.3f},r5={:.3f}' \
+                                        .format(*results))
 
         # varying downsampling; varying distort
         for vt in ['downsampling', 'distort']:
             results = []
             for rate in [0.1, 0.2, 0.3, 0.4, 0.5]:
-                with open(Config.dataset_file + '_newsimi_' + vt + '_' + str(rate) + '.pkl', 'rb') as fh:
-                    q_lst, db_lst = pickle.load(fh)
-                    querys, databases = self.test_merc_seq_to_embs(q_lst, db_lst)
-                    dists = torch.cdist(querys, databases, p = 1) # [1000, 100000]
-                    targets = torch.diag(dists) # [1000]
-                    result = torch.sum(torch.le(dists.T, targets)).item() / len(q_lst)
-                    results.append(result)
+                q_lst, db_lst = load_pickle(Config.dataset_file + '_newsimi_' + vt + '_' + str(rate) + '.pkl')
+                querys, databases = self.test_merc_seq_to_embs(q_lst, db_lst)
+                dists = torch.cdist(querys, databases, p = 1) # [1000, 100000]
+                targets = torch.diag(dists) # [1000]
+                result = torch.sum(torch.le(dists.T, targets)).item() / len(q_lst)
+                results.append(result)
             logging.info('[EXPFlag]task=newsimi,encoder=TrajCL,varying={},r1={:.3f},r2={:.3f},r3={:.3f},r4={:.3f},r5={:.3f}' \
                                           .format(vt, *results))
         return
@@ -289,15 +288,18 @@ class TrajCLTrainer:
 
 
     def save_checkpoint(self):
-        torch.save({'model_state_dict': self.model.state_dict(),
-                    'aug1': self.aug1.__name__,
-                    'aug2': self.aug2.__name__},
+        self.best_checkpoint = {'model_state_dict': copy.deepcopy(self.model.state_dict()),
+                                'aug1': self.aug1.__name__,
+                                'aug2': self.aug2.__name__}
+        torch.save(self.best_checkpoint,
                     self.checkpoint_file)
         return
     
 
     def load_checkpoint(self):
-        checkpoint = torch.load(self.checkpoint_file, map_location=Config.device)
+        checkpoint = getattr(self, 'best_checkpoint', None)
+        if checkpoint is None:
+            checkpoint = tool_funcs.load_checkpoint(self.checkpoint_file, map_location=Config.device)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.to(Config.device)
         

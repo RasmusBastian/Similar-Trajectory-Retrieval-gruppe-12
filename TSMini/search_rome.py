@@ -33,6 +33,23 @@ from prepare_rome import frechet  # exact discrete Frechet (numba)
 
 # ----------------------------------------------------------------------------- data
 def load_all(h5_path):
+    prefix = os.path.basename(h5_path).removesuffix(".h5")
+    if prefix == "beijing_20200" or os.environ.get("TRAINING_DATA_SOURCE", "").lower() in ("db", "database") or os.environ.get("PGHOST"):
+        from utils.data_loader import _db_connection
+        # The training loader intentionally selects the 10,000-trajectory slice; search needs the full dataset.
+        with _db_connection() as conn, conn.cursor() as cur:
+            cur.execute("SELECT merc_range FROM tsmini.dataset WHERE name = %s", (prefix,))
+            row = cur.fetchone()
+            if row is None:
+                raise RuntimeError(f"Dataset {prefix!r} is not imported into tsmini.dataset")
+            merc_range = list(row[0])
+            cur.execute("""SELECT idx, (dp).path[1], ST_X((dp).geom), ST_Y((dp).geom)
+                           FROM (SELECT idx, ST_DumpPoints(geom) AS dp FROM tsmini.trajectory WHERE dataset = %s) q
+                           ORDER BY idx, (dp).path[1]""", (prefix,))
+            grouped = {}
+            for idx, _, x, y in cur:
+                grouped.setdefault(idx, []).append([x, y])
+        return [np.asarray(grouped[i]) for i in sorted(grouped)], merc_range
     with h5py.File(h5_path, "r") as f:
         n = int(f.attrs["n"])
         merc_range = f.attrs["merc_range"][()].tolist()
@@ -85,6 +102,23 @@ def embed(model, trajs, space, bs=256):
 
 
 def get_embeddings(trajs, space, force=False):
+    if Config.dataset_prefix == "beijing_20200":
+        from utils.data_loader import _db_connection
+        with _db_connection() as conn, conn.cursor() as cur:
+            cur.execute("""SELECT model, idx, embedding FROM tsmini.embedding
+                           WHERE dataset = %s ORDER BY model, idx""", (Config.dataset_prefix,))
+            rows = cur.fetchall()
+        if not rows:
+            raise RuntimeError("Beijing embeddings are missing from tsmini.embedding; import the model ZIP first")
+        models = {row[0] for row in rows}
+        if len(models) != 1 or len(rows) != len(trajs):
+            raise RuntimeError(f"Expected one complete Beijing embedding set; found models={models}, rows={len(rows)}")
+        embeddings = np.empty((len(rows), len(rows[0][2])), dtype=np.float32)
+        for _, idx, embedding in rows:
+            embeddings[idx] = embedding
+        print(f"loaded database embeddings {embeddings.shape} (model {next(iter(models))})")
+        return embeddings
+
     ckpt = checkpoint_path()
     if not os.path.exists(ckpt):
         sys.exit(f"checkpoint not found: {ckpt}")

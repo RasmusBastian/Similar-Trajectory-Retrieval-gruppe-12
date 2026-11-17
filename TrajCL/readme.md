@@ -85,34 +85,38 @@ The `--trajsimi_measure_fn_name frechet` flag is required, as the default in `co
 
 ### Training on Beijing
 
-Same steps with `beijing` instead of `rome`. The trajectories come from the shared aSTEP database
-(see "Beijing data for TSMini and TrajCL" in the root README), so build TSMini's Beijing files first.
-The area is about twice the size of Rome's, so expect node2vec to take about twice as long.
+Import the Beijing dataset zip into the project database first (see the root README). For Beijing, TrajCL reads
+trajectories, ground truth, cellspace, cell embeddings, and saved checkpoints from PostgreSQL. The pipeline checks
+the database for completed steps and does not restore those inputs to local files. The connection defaults to
+`localhost:5433`, database `trajectories`, user/password `str`; override `PGHOST`, `PGPORT`, `PGUSER`,
+`PGPASSWORD`, or `PGDATABASE` only if your database connection differs.
 
 ```bash
-.venv/bin/python prepare_beijing.py
-.venv/bin/python prepare_beijing.py --node2vec
-.venv/bin/python train.py --dataset beijing
-.venv/bin/python train_trajsimi.py --dataset beijing --trajsimi_measure_fn_name frechet
+python train_pipeline.py --dataset beijing
 ```
+
+The pipeline runs prepare, node2vec, pre-training, fine-tuning, and embedding in order. The Beijing area is
+about twice the size of Rome's, so node2vec can take longer.
 
 ### Saving results so nothing is trained twice
 
-After each long step, save its output in the project database (schema `trajcl`, from the repository root).
-That stores the node2vec cell embeddings, all `.pt` models, the logs, and (after `embed.py`) an embedding per trajectory:
+In Beijing database mode, the pipeline automatically stores each generated step in PostgreSQL. The embedding step
+writes per-trajectory vectors directly to `trajcl.embedding`:
 
 ```bash
-.venv/bin/python embed.py --dataset beijing --trajsimi_measure_fn_name frechet   # after fine-tuning, a few minutes
-docker compose run --rm --build trajcl-import --prefix beijing_20200             # from the repository root
+.venv/bin/python embed.py --dataset beijing --trajsimi_measure_fn_name frechet
 ```
 
-To continue on a machine without the files (e.g. skip node2vec or pre-training), write them back to disk:
+To see how many Beijing training stages are already stored, run the pipeline; complete database stages are skipped.
+The `trajcl-import --restore` option is only for workflows that explicitly need local copies.
 
-```bash
-docker compose run --rm --build trajcl-import --prefix beijing_20200 --restore
+From PowerShell in the repository root, compare TrajCL's embedding search with exact Frechet search for Beijing trajectory 210:
+
+```powershell
+python scripts/query_models.py --model trajcl --idx 210
 ```
 
-Similar trajectories by embedding: `SELECT * FROM trajcl.similar('beijing_20200', 5);`
+Replace `210` with an existing trajectory index (`0`–`49933`). Use `--k` to change the number of displayed matches or `--rerank` to change the exact reranking candidate count.
 
 ### Differences from upstream
 

@@ -2,6 +2,7 @@ import math
 import logging
 import random
 import time
+import copy
 import pickle
 import torch
 import torch.nn as nn
@@ -11,7 +12,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 from config import Config as Config
 from utils import tool_funcs
-from utils.data_loader import read_trajsimi_simi_dataset, read_trajsimi_traj_dataset
+from utils.data_loader import load_pickle, read_trajsimi_simi_dataset, read_trajsimi_traj_dataset
 from utils.traj import merc2cell2, generate_spatial_features
 
 
@@ -42,7 +43,7 @@ class TrajSimi:
                                             Config.trajsimi_measure_fn_name, \
                                             Config.dumpfile_uniqueid)
         
-        self.cellspace = pickle.load(open(Config.dataset_cell_file, 'rb'))
+        self.cellspace = load_pickle(Config.dataset_cell_file)
         self.cellembs = tool_funcs.load_cell_embs(Config.dataset_embs_file).to(Config.device) # tensor
 
 
@@ -69,6 +70,10 @@ class TrajSimi:
         
         best_epoch = 0
         best_hr_eval = 0
+        best_checkpoint = {
+            "encoder_q": copy.deepcopy(self.encoder.clmodel.encoder_q.state_dict()),
+            "trajsimi": copy.deepcopy(self.trajsimiregression.state_dict()),
+        }
         bad_counter = 0
         bad_patience = Config.trajsimi_training_bad_patience
 
@@ -123,10 +128,11 @@ class TrajSimi:
                 best_epoch = i_ep
                 best_hr_eval = hr_eval_ep
                 bad_counter = 0
-
-                torch.save({"encoder_q" : self.encoder.clmodel.encoder_q.state_dict(),
-                            "trajsimi": self.trajsimiregression.state_dict()}, 
-                            self.checkpoint_filepath)
+                best_checkpoint = {
+                    "encoder_q": copy.deepcopy(self.encoder.clmodel.encoder_q.state_dict()),
+                    "trajsimi": copy.deepcopy(self.trajsimiregression.state_dict()),
+                }
+                torch.save(best_checkpoint, self.checkpoint_filepath)
             else:
                 bad_counter += 1
 
@@ -137,11 +143,10 @@ class TrajSimi:
                 break
             
         # test
-        checkpoint = torch.load(self.checkpoint_filepath, map_location=Config.device)
-        self.trajsimiregression.load_state_dict(checkpoint['trajsimi'])
+        self.trajsimiregression.load_state_dict(best_checkpoint['trajsimi'])
         self.trajsimiregression.to(Config.device)
         self.trajsimiregression.eval()
-        self.encoder.clmodel.encoder_q.load_state_dict(checkpoint['encoder_q'])
+        self.encoder.clmodel.encoder_q.load_state_dict(best_checkpoint['encoder_q'])
 
         test_starttime = time.time()
         test_metrics = self.test(dataset_type = 'test')

@@ -2,7 +2,7 @@
 #
 # Start everything:   docker compose up -d
 # Stop:               docker compose down
-# Reset the database: docker compose down -v   (then up again re-creates and re-imports)
+# Reset the database: docker compose down -v   (then up again creates the empty schemas)
 #
 # Ports can be changed in a .env file
 
@@ -26,56 +26,16 @@ services:
       timeout: 5s
       retries: 30
 
-  # One-off job: imports legacy/ CSV data into the database, then exits (skips if already imported)
-  importer:
-    build: ./python
-    environment:
-      PGHOST: db
-      PGPORT: "5432"
-      PGUSER: str
-      PGPASSWORD: str
-      PGDATABASE: trajectories
-    volumes:
-      - ./legacy:/app/legacy:ro
-    depends_on:
-      db:
-        condition: service_healthy
-
   api:
+    profiles: [api]
     build:
       context: .
       dockerfile: src/TrajectoryRetrieval.Api/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: "Host=db;Port=5432;Database=trajectories;Username=str;Password=str"
-      Data__VertexCsv: /data/legacy/telchar/output/vertex.csv
-      Data__EdgeConnectionsCsv: /data/legacy/telchar/output/edge_connections.csv
-      Data__TravelTimeDirectory: /data/legacy/postprocessing/output
     ports:
       - "${API_PORT:-5038}:8080"
-    volumes:
-      - ./legacy:/data/legacy:ro
-    depends_on:
-      importer:
-        condition: service_completed_successfully
-
-  # One-off job: map-matches Beijing trajectories from the shared aSTEP database (astep-aau/data, on localhost:5432)
-  # and saves them in bj_matched_trajectory. Not started by `up`, run with:
-  #   docker compose run --rm --build mapmatching --limit 1000
-  mapmatching:
-    build: ./mapmatching
-    profiles: [mapmatching]
-    environment:
-      SHARED_DATABASE_URL: ${SHARED_DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:5432/data}
-      PGHOST: db
-      PGPORT: "5432"
-      PGUSER: str
-      PGPASSWORD: str
-      PGDATABASE: trajectories
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - ./db/init:/app/sql:ro
     depends_on:
       db:
         condition: service_healthy
@@ -83,7 +43,7 @@ services:
   # One-off job: imports TSMini's inputs and outputs (TSMini/data, TSMini/exp) into the tsmini schema.
   # Not started by `up`, run with:
   #   docker compose run --rm --build tsmini-import              (add --replace to re-import)
-  # The raw Rome trajectories are read from ROME_MATCHING_DIR/matching_result.csv (set it in .env).
+  # ZIP import mounts a temporary extracted bundle here; no dataset copy is kept in the repository.
   tsmini-import:
     build:
       context: ./TSMini
@@ -99,11 +59,11 @@ services:
       PGUSER: str
       PGPASSWORD: str
       PGDATABASE: trajectories
-      ROME_MATCHING_CSV: /rome/matching_result.csv
+      BEIJING_DATA_ROOT: /beijing/TSMini
     volumes:
       - ./TSMini:/app/TSMini:ro
       - ./db/init:/app/sql:ro
-      - ${ROME_MATCHING_DIR:-../ST2Vec/data/rome/st_traj/st_traj}:/rome:ro
+      - ${BEIJING_DATA_DIR:-.}:/beijing:ro
     depends_on:
       db:
         condition: service_healthy
@@ -128,33 +88,15 @@ services:
       PGPASSWORD: str
       PGDATABASE: trajectories
       TSMINI_ROOT: /app/TSMini
+      BEIJING_DATA_ROOT: /beijing/TrajCL
     volumes:
       - ./TrajCL:/app/TrajCL
       - ./TSMini:/app/TSMini:ro
       - ./db/init:/app/sql:ro
+      - ${BEIJING_DATA_DIR:-.}:/beijing:ro
     depends_on:
       db:
         condition: service_healthy
-
-  # One-off job: exports map-matched Beijing trajectories from the shared aSTEP database (astep-aau/data)
-  # to TSMini/data/beijing_matching_result.csv, the input for TSMini/prepare_rome.py. Not started by `up`, run with:
-  #   docker compose run --rm --build beijing-export             (add e.g. --limit 100000)
-  # Set SHARED_DATABASE_URL in .env if the shared database is not on localhost:5434.
-  beijing-export:
-    build:
-      context: ./TSMini
-      dockerfile_inline: |
-        FROM python:3.12-slim
-        RUN pip install --no-cache-dir "psycopg[binary]"
-        WORKDIR /app/TSMini
-        ENTRYPOINT ["python", "export_beijing.py"]
-    profiles: [beijing]
-    environment:
-      SHARED_DATABASE_URL: ${SHARED_DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:5434/data}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - ./TSMini:/app/TSMini
 
 volumes:
   dbdata:
