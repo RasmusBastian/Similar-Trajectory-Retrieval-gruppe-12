@@ -1,4 +1,4 @@
-Æ// Web server for the demo UI.
+// Web server for the demo UI.
 // Serves the page in public/ and a small JSON API that reads from the project's PostgreSQL database.
 // Start: npm start  ->  http://localhost:3000
 
