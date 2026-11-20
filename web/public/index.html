@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Similar Trajectory Retrieval</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="panel">
+    <header>
+      <h1>Similar Trajectory Retrieval</h1>
+      <p class="sub">demo</p>
+    </header>
+
+    <form id="search-form" autocomplete="off">
+      <label>Dataset
+        <select id="dataset" required></select>
+      </label>
+
+      <div class="row">
+        <label>Model
+          <select id="model" required></select>
+        </label>
+        <label>Ground truth
+          <select id="measure" required></select>
+        </label>
+      </div>
+
+      <div class="row">
+        <label>Query trajectory
+          <span class="input-with-button">
+            <input id="query" type="number" min="0" required placeholder="id">
+            <button type="button" id="random" title="Pick a random query">Random</button>
+          </span>
+        </label>
+        <label class="k">Top-k
+          <input id="k" type="number" required>
+        </label>
+      </div>
+      <p class="hint" id="query-hint"></p>
+
+      <button type="submit" id="search">Search</button>
+    </form>
+
+    <p id="status" class="status" role="status"></p>
+
+    <section id="results" hidden>
+      <div class="overlap">
+        <span class="overlap-number" id="overlap-number"></span>
+        <span class="overlap-text" id="overlap-text"></span>
+      </div>
+
+      <div class="legend">
+        <label><span class="swatch query"></span>Query</label>
+        <label><input type="checkbox" id="show-both" checked><span class="swatch both"></span>Found by both</label>
+        <label><input type="checkbox" id="show-model" checked><span class="swatch model"></span>Model only</label>
+        <label><input type="checkbox" id="show-truth" checked><span class="swatch truth"></span>Ground truth only</label>
+      </div>
+
+      <div class="lists">
+        <div>
+          <h2 id="model-title">Model top-k</h2>
+          <ol id="model-list" class="result-list"></ol>
+        </div>
+        <div>
+          <h2 id="truth-title">Ground truth top-k</h2>
+          <ol id="truth-list" class="result-list"></ol>
+        </div>
+      </div>
+      <p class="hint" id="checkpoint"></p>
+    </section>
+  </aside>
+
+  <main id="map" aria-label="Map"></main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

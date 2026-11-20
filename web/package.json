@@ -1,0 +1,14 @@
+{
+  "name": "trajectory-demo-web",
+  "private": true,
+  "description": "Demo UI: compare a model's top-k similar trajectories with the ground truth on a map",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "pg": "^8.23.1"
+  }
+}
