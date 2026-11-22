@@ -54,12 +54,13 @@ def read_trajsimi_simi_dataset(file_path):
 
 
 class TrajSimiDatasetTraining(Dataset):
-    def __init__(self, trains_traj, batchsize):
+    def __init__(self, trains_traj, batchsize, n_iters_from = None):
         self.trains_traj = trains_traj
         self.n = len(self.trains_traj)
         
         self.batchsize = batchsize
-        self.niters = math.ceil( (self.n / batchsize)**2 )
+        # n_iters_from: size of the full training set, so a subset trains for as many batches as the full set
+        self.niters = math.ceil( ((n_iters_from or self.n) / batchsize)**2 )
     
     def __getitem__(self, index):
         sampled_idxs = random.sample(range(self.n), k = self.batchsize)

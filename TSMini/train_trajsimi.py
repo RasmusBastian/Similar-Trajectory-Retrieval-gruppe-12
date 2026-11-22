@@ -21,6 +21,9 @@ def parse_args():
     parser.add_argument('--trajsimi_epoch', type = int, help = 'max epochs, stops early after '
                         'trajsimi_training_bad_patience epochs without improvement (config.py default: 1)')
 
+    parser.add_argument('--trajsimi_train_frac', type = float, help = 'share of the training trajectories '
+                        'to use, e.g. 0.2; eval/test sets and batches per epoch stay the same (default: 1.0)')
+
     args = parser.parse_args()
     return dict(filter(lambda kv: kv[1] is not None, vars(args).items()))
 
