@@ -123,6 +123,17 @@ checksum. Unpack only adds what you don't have and never overwrites a file that 
 newer model) unless you pass `--force`. Model file names are fixed, so **agree who trains which model** before
 starting, otherwise two people's checkpoints of the same model conflict.
 
+### ConvTraj
+
+[ConvTraj](ConvTraj/) (VLDB 2025, CNN-based) trains on the same trajectories, splits and Fréchet ground truth as
+TSMini and TrajCL, and reports the same HR@5/HR@20/R5@20 on the test split. See [ConvTraj/readme.md](ConvTraj/readme.md):
+
+```bash
+cd ConvTraj && .venv/bin/python train_pipeline.py --dataset beijing
+```
+
+It is not in the database yet; its embeddings are in `ConvTraj/exp/embeddings_<prefix>.npz` (same format as TrajCL's).
+
 ### TrajCL (schema `trajcl`)
 
 [db/init/04_trajcl.sql](db/init/04_trajcl.sql): TrajCL's trained models, node2vec cell embeddings, logs and

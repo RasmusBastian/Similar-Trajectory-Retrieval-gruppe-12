@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Share TSMini/TrajCL data and trained models with the team as one zip per dataset.
+Share TSMini/TrajCL/ConvTraj data and trained models with the team as one zip per dataset.
 Only needs the Python standard library. Run from anywhere; paths are relative to the repository root.
 
     python scripts/share_data.py pack --prefix beijing_20200    # -> shared/beijing_20200_<date>_<name>.zip
@@ -17,6 +17,7 @@ Packed (only what exists), for prefix P:
     TrajCL/data/P, P_newsimi_*.pkl, P_cell*_cellspace.pkl, P_cell*_embs.pkl   dataset, node2vec cell embeddings
     TrajCL/exp/snapshots/P_*.pt, TrajCL/exp/embeddings_P.npz        node2vec, pre-trained, fine-tuned models
     TSMini/exp/log/*.log, TrajCL/exp/log/*.log                      training logs
+    ConvTraj/exp/P/model/P_*, ConvTraj/exp/P/metrics.json, ConvTraj/exp/embeddings_P.npz   model, test metrics, embeddings
 TrajCL/data/P_traj_simi_dict_*.pkl is a copy of TSMini's, so it is not packed but copied by unpack.
 Files tracked by git (e.g. TSMini's committed Rome model) are skipped: teammates get them with git pull.
 """
@@ -52,6 +53,9 @@ def bundle_patterns(p):
         f"TrajCL/exp/snapshots/{p}_*.pt",
         f"TrajCL/exp/embeddings_{p}.npz",
         "TrajCL/exp/log/*.log",
+        f"ConvTraj/exp/{p}/model/{p}_*",
+        f"ConvTraj/exp/{p}/metrics.json",
+        f"ConvTraj/exp/embeddings_{p}.npz",
     ]
 
 

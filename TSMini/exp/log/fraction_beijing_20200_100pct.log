@@ -1,0 +1,185 @@
+[train_trajsimi.py:55 <module>()] -> python train_trajsimi.py --dataset beijing --trajsimi_measure_fn_name frechet --trajsimi_epoch 30 --trajsimi_train_frac 1.0 --dumpfile_uniqueid _frac100
+[train_trajsimi.py:56 <module>()] -> =================================
+[train_trajsimi.py:57 <module>()] -> debug = False
+dumpfile_uniqueid = _frac100
+seed = 2000
+device = cuda:0
+root_dir = /home/jesper/Similar-Trajectory-Retrieval-gruppe-12/TSMini
+checkpoint_dir = /home/jesper/Similar-Trajectory-Retrieval-gruppe-12/TSMini/exp/snapshots
+dataset = beijing
+dataset_prefix = beijing_20200
+dataset_file = /home/jesper/Similar-Trajectory-Retrieval-gruppe-12/TSMini/data/beijing_20200
+min_traj_len = 20
+max_traj_len = 200
+cell_size = 100.0
+cellspace_buffer = 500.0
+traj_duplicate_short_tolerance = 80
+traj_distance_norm_denominator = 1000
+seq_embedding_dim = 128
+tsmini_conv_channel_dim = 64
+tsmini_conv_hidden_in_dim = 16
+tsmini_conv_kernel_size = 3
+tsmini_conv_stride = 1
+tsmini_patch_emb_dim = 128
+tsmin_trans_attention_head = 4
+tsmin_trans_attention_dropout = 0.1
+tsmin_trans_attention_layer = 1
+tsmin_trans_pos_encoder_dropout = 0.1
+tsmin_trans_hidden_dim = 512
+trajsimi_encoder_name = TSMini
+trajsimi_measure_fn_name = frechet
+trajsimi_loss_mse_weight = 0.2
+trajsimi_batch_size = 128
+trajsimi_epoch = 30
+trajsimi_train_frac = 1.0
+trajsimi_training_bad_patience = 5
+trajsimi_learning_rate = 0.002
+trajsimi_training_lr_degrade_step = 15
+trajsimi_training_lr_degrade_gamma = 0.5
+trajsimi_learning_weight_decay = 1e-05
+trajsimi_finetune_lr_rescale = 0.5
+[train_trajsimi.py:58 <module>()] -> =================================
+[data_loader.py:13 read_trajsimi_traj_dataset()] -> [trajsimi traj dataset] Start loading.
+[data_loader.py:36 read_trajsimi_traj_dataset()] -> [trajsimi traj dataset] Loaded. @=0.55. traj: #total=10000 (trains/evals/tests=7000/1000/2000)
+[data_loader.py:43 read_trajsimi_simi_dataset()] -> [trajsimi simi dataset] Start loading.
+[data_loader.py:51 read_trajsimi_simi_dataset()] -> [trajsimi simi dataset] Loaded. @=0.06, trains/evals/tests=7000/1000/2000
+[trajsimi.py:27 __init__()] -> Cellspace: {'x_min': 12934888.716434155, 'x_max': 12974764.065231353, 'y_min': 4829344.8292485215, 'y_max': 4870802.174380737, 'x_unit': 100.0, 'y_unit': 100.0, 'buffer': 500.0, 'x_size': 399, 'y_size': 415, 'size': 165585}
+[trajsimi.py:63 train()] -> train_trajsimi start.@=1795376734.492
+[trajsimi.py:128 train()] -> training. ep-batch=0-0, loss=21.9975, @=4.070, gpu=(3067, 24564), ram=1757
+[trajsimi.py:128 train()] -> training. ep-batch=0-1000, loss=3.4235, @=15.118, gpu=(3073, 24564), ram=1893
+[trajsimi.py:128 train()] -> training. ep-batch=0-2000, loss=3.1955, @=25.732, gpu=(3100, 24564), ram=1899
+[trajsimi.py:136 train()] -> training. i_ep=0, loss=3.8142/0.0016/4.7289, @=36.694
+[trajsimi.py:141 train()] -> eval.     i_ep=0, mseloss=136.6311, hr=0.798,0.861,1.000,0.760,0.833,0.995, gpu=3054, ram=1958, @=0.186
+[trajsimi.py:128 train()] -> training. ep-batch=1-0, loss=3.5459, @=3.641, gpu=(3039, 24564), ram=1975
+[trajsimi.py:128 train()] -> training. ep-batch=1-1000, loss=3.2842, @=14.237, gpu=(3027, 24564), ram=1976
+[trajsimi.py:128 train()] -> training. ep-batch=1-2000, loss=3.4769, @=24.565, gpu=(3027, 24564), ram=1976
+[trajsimi.py:136 train()] -> training. i_ep=1, loss=3.1966/0.0025/3.9341, @=35.471
+[trajsimi.py:141 train()] -> eval.     i_ep=1, mseloss=130.9867, hr=0.812,0.872,0.999,0.773,0.844,0.997, gpu=3027, ram=1976, @=0.190
+[trajsimi.py:128 train()] -> training. ep-batch=2-0, loss=3.1332, @=3.585, gpu=(3027, 24564), ram=1983
+[trajsimi.py:128 train()] -> training. ep-batch=2-1000, loss=2.7860, @=14.171, gpu=(3028, 24564), ram=1983
+[trajsimi.py:128 train()] -> training. ep-batch=2-2000, loss=3.0406, @=24.813, gpu=(3065, 24564), ram=1983
+[trajsimi.py:136 train()] -> training. i_ep=2, loss=3.0490/0.0029/3.7394, @=35.542
+[trajsimi.py:141 train()] -> eval.     i_ep=2, mseloss=137.0391, hr=0.821,0.882,1.000,0.784,0.853,0.998, gpu=3037, ram=1986, @=0.148
+[trajsimi.py:128 train()] -> training. ep-batch=3-0, loss=2.8732, @=3.684, gpu=(3037, 24564), ram=1987
+[trajsimi.py:128 train()] -> training. ep-batch=3-1000, loss=3.1100, @=14.174, gpu=(3037, 24564), ram=1989
+[trajsimi.py:128 train()] -> training. ep-batch=3-2000, loss=3.1081, @=24.445, gpu=(3036, 24564), ram=1988
+[trajsimi.py:136 train()] -> training. i_ep=3, loss=2.9569/0.0031/3.6192, @=35.074
+[trajsimi.py:141 train()] -> eval.     i_ep=3, mseloss=140.3837, hr=0.822,0.885,1.000,0.779,0.854,0.998, gpu=3036, ram=1988, @=0.140
+[trajsimi.py:128 train()] -> training. ep-batch=4-0, loss=3.0998, @=3.630, gpu=(3036, 24564), ram=1989
+[trajsimi.py:128 train()] -> training. ep-batch=4-1000, loss=2.7825, @=14.173, gpu=(3043, 24564), ram=1989
+[trajsimi.py:128 train()] -> training. ep-batch=4-2000, loss=3.1110, @=24.527, gpu=(3037, 24564), ram=1989
+[trajsimi.py:136 train()] -> training. i_ep=4, loss=2.9002/0.0032/3.5450, @=35.073
+[trajsimi.py:141 train()] -> eval.     i_ep=4, mseloss=138.0815, hr=0.818,0.884,1.000,0.786,0.853,0.997, gpu=3037, ram=1989, @=0.145
+[trajsimi.py:128 train()] -> training. ep-batch=5-0, loss=2.7916, @=3.666, gpu=(3036, 24564), ram=1989
+[trajsimi.py:128 train()] -> training. ep-batch=5-1000, loss=2.8932, @=14.055, gpu=(3036, 24564), ram=1990
+[trajsimi.py:128 train()] -> training. ep-batch=5-2000, loss=2.9468, @=24.348, gpu=(3036, 24564), ram=1991
+[trajsimi.py:136 train()] -> training. i_ep=5, loss=2.8500/0.0033/3.4793, @=34.893
+[trajsimi.py:141 train()] -> eval.     i_ep=5, mseloss=141.5856, hr=0.823,0.885,1.000,0.787,0.854,0.997, gpu=3036, ram=1992, @=0.148
+[trajsimi.py:128 train()] -> training. ep-batch=6-0, loss=2.8995, @=3.632, gpu=(3036, 24564), ram=1993
+[trajsimi.py:128 train()] -> training. ep-batch=6-1000, loss=2.8153, @=14.082, gpu=(3032, 24564), ram=1993
+[trajsimi.py:128 train()] -> training. ep-batch=6-2000, loss=3.0063, @=24.521, gpu=(2998, 24564), ram=1993
+[trajsimi.py:136 train()] -> training. i_ep=6, loss=2.8037/0.0034/3.4187, @=35.971
+[trajsimi.py:141 train()] -> eval.     i_ep=6, mseloss=145.1237, hr=0.825,0.886,1.000,0.786,0.857,0.997, gpu=3155, ram=1993, @=0.147
+[trajsimi.py:128 train()] -> training. ep-batch=7-0, loss=2.6567, @=3.636, gpu=(3104, 24564), ram=1993
+[trajsimi.py:128 train()] -> training. ep-batch=7-1000, loss=2.6901, @=14.118, gpu=(3083, 24564), ram=1994
+[trajsimi.py:128 train()] -> training. ep-batch=7-2000, loss=3.1196, @=24.305, gpu=(3083, 24564), ram=1995
+[trajsimi.py:136 train()] -> training. i_ep=7, loss=2.7815/0.0035/3.3894, @=34.676
+[trajsimi.py:141 train()] -> eval.     i_ep=7, mseloss=143.4563, hr=0.825,0.889,1.000,0.790,0.860,0.997, gpu=3077, ram=1994, @=0.146
+[trajsimi.py:128 train()] -> training. ep-batch=8-0, loss=2.5586, @=3.629, gpu=(3107, 24564), ram=1995
+[trajsimi.py:128 train()] -> training. ep-batch=8-1000, loss=2.7594, @=13.969, gpu=(3081, 24564), ram=1995
+[trajsimi.py:128 train()] -> training. ep-batch=8-2000, loss=2.7179, @=24.050, gpu=(3081, 24564), ram=1995
+[trajsimi.py:136 train()] -> training. i_ep=8, loss=2.7488/0.0036/3.3469, @=34.376
+[trajsimi.py:141 train()] -> eval.     i_ep=8, mseloss=141.1900, hr=0.825,0.889,1.000,0.791,0.858,0.997, gpu=3081, ram=1995, @=0.193
+[trajsimi.py:128 train()] -> training. ep-batch=9-0, loss=2.7951, @=3.635, gpu=(3081, 24564), ram=1995
+[trajsimi.py:128 train()] -> training. ep-batch=9-1000, loss=2.4554, @=14.268, gpu=(3088, 24564), ram=1996
+[trajsimi.py:128 train()] -> training. ep-batch=9-2000, loss=2.6518, @=24.708, gpu=(3095, 24564), ram=1996
+[trajsimi.py:136 train()] -> training. i_ep=9, loss=2.7235/0.0036/3.3137, @=35.461
+[trajsimi.py:141 train()] -> eval.     i_ep=9, mseloss=146.2833, hr=0.828,0.890,1.000,0.788,0.858,0.998, gpu=3049, ram=1997, @=0.144
+[trajsimi.py:128 train()] -> training. ep-batch=10-0, loss=2.6652, @=3.625, gpu=(2962, 24564), ram=1999
+[trajsimi.py:128 train()] -> training. ep-batch=10-1000, loss=2.6417, @=14.242, gpu=(2962, 24564), ram=1999
+[trajsimi.py:128 train()] -> training. ep-batch=10-2000, loss=2.6029, @=24.710, gpu=(2961, 24564), ram=1999
+[trajsimi.py:136 train()] -> training. i_ep=10, loss=2.7028/0.0037/3.2868, @=35.479
+[trajsimi.py:141 train()] -> eval.     i_ep=10, mseloss=146.3523, hr=0.827,0.890,1.000,0.791,0.859,0.998, gpu=2961, ram=1999, @=0.143
+[trajsimi.py:128 train()] -> training. ep-batch=11-0, loss=2.6596, @=3.636, gpu=(2961, 24564), ram=1999
+[trajsimi.py:128 train()] -> training. ep-batch=11-1000, loss=2.4460, @=14.250, gpu=(2961, 24564), ram=1999
+[trajsimi.py:128 train()] -> training. ep-batch=11-2000, loss=2.9391, @=24.987, gpu=(3055, 24564), ram=2000
+[trajsimi.py:136 train()] -> training. i_ep=11, loss=2.6820/0.0037/3.2604, @=35.537
+[trajsimi.py:141 train()] -> eval.     i_ep=11, mseloss=146.0923, hr=0.830,0.891,1.000,0.794,0.861,0.997, gpu=3054, ram=2000, @=0.150
+[trajsimi.py:128 train()] -> training. ep-batch=12-0, loss=2.5728, @=3.585, gpu=(3054, 24564), ram=2001
+[trajsimi.py:128 train()] -> training. ep-batch=12-1000, loss=2.7958, @=14.508, gpu=(3085, 24564), ram=2002
+[trajsimi.py:128 train()] -> training. ep-batch=12-2000, loss=2.5869, @=24.724, gpu=(3085, 24564), ram=2002
+[trajsimi.py:136 train()] -> training. i_ep=12, loss=2.6702/0.0037/3.2447, @=35.143
+[trajsimi.py:141 train()] -> eval.     i_ep=12, mseloss=148.7767, hr=0.824,0.892,1.000,0.786,0.860,0.998, gpu=3083, ram=2002, @=0.143
+[trajsimi.py:128 train()] -> training. ep-batch=13-0, loss=2.7197, @=3.660, gpu=(3083, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=13-1000, loss=2.9964, @=14.388, gpu=(3064, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=13-2000, loss=2.6884, @=25.127, gpu=(2996, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=13, loss=2.6509/0.0037/3.2200, @=35.882
+[trajsimi.py:141 train()] -> eval.     i_ep=13, mseloss=146.1064, hr=0.832,0.893,1.000,0.797,0.863,0.998, gpu=2996, ram=2003, @=0.146
+[trajsimi.py:128 train()] -> training. ep-batch=14-0, loss=2.5729, @=3.640, gpu=(3005, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=14-1000, loss=2.9129, @=14.274, gpu=(2989, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=14-2000, loss=2.6041, @=24.854, gpu=(3006, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=14, loss=2.6421/0.0038/3.2085, @=35.556
+[trajsimi.py:141 train()] -> eval.     i_ep=14, mseloss=148.0684, hr=0.831,0.893,1.000,0.795,0.864,0.998, gpu=3004, ram=2003, @=0.145
+[trajsimi.py:128 train()] -> training. ep-batch=15-0, loss=2.9879, @=3.756, gpu=(3007, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=15-1000, loss=2.5050, @=14.705, gpu=(3102, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=15-2000, loss=2.5189, @=25.402, gpu=(3031, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=15, loss=2.5657/0.0039/3.1101, @=36.231
+[trajsimi.py:141 train()] -> eval.     i_ep=15, mseloss=148.3167, hr=0.833,0.896,1.000,0.798,0.865,0.999, gpu=3001, ram=2003, @=0.146
+[trajsimi.py:128 train()] -> training. ep-batch=16-0, loss=2.5316, @=3.617, gpu=(3001, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=16-1000, loss=2.9096, @=14.308, gpu=(2998, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=16-2000, loss=2.5658, @=24.569, gpu=(2993, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=16, loss=2.5561/0.0039/3.0977, @=35.091
+[trajsimi.py:141 train()] -> eval.     i_ep=16, mseloss=148.2331, hr=0.834,0.896,1.000,0.799,0.867,0.999, gpu=2996, ram=2003, @=0.146
+[trajsimi.py:128 train()] -> training. ep-batch=17-0, loss=2.2634, @=3.593, gpu=(2997, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=17-1000, loss=2.4514, @=14.191, gpu=(2996, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=17-2000, loss=2.4498, @=24.709, gpu=(2996, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=17, loss=2.5551/0.0039/3.0961, @=35.367
+[trajsimi.py:141 train()] -> eval.     i_ep=17, mseloss=149.6255, hr=0.836,0.897,1.000,0.796,0.866,0.998, gpu=2996, ram=2003, @=0.145
+[trajsimi.py:128 train()] -> training. ep-batch=18-0, loss=2.5208, @=3.604, gpu=(2996, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=18-1000, loss=2.4899, @=14.275, gpu=(2996, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=18-2000, loss=2.4921, @=24.935, gpu=(3036, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=18, loss=2.5480/0.0039/3.0869, @=35.625
+[trajsimi.py:141 train()] -> eval.     i_ep=18, mseloss=150.2211, hr=0.834,0.896,1.000,0.799,0.868,0.998, gpu=3089, ram=2003, @=0.147
+[trajsimi.py:128 train()] -> training. ep-batch=19-0, loss=2.5325, @=3.629, gpu=(3135, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=19-1000, loss=2.3189, @=14.464, gpu=(3074, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=19-2000, loss=2.5251, @=25.056, gpu=(3062, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=19, loss=2.5447/0.0039/3.0826, @=35.668
+[trajsimi.py:141 train()] -> eval.     i_ep=19, mseloss=148.5755, hr=0.835,0.897,1.000,0.800,0.866,0.999, gpu=3063, ram=2003, @=0.150
+[trajsimi.py:128 train()] -> training. ep-batch=20-0, loss=2.4804, @=3.645, gpu=(3112, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=20-1000, loss=2.4814, @=14.617, gpu=(3208, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=20-2000, loss=2.6161, @=25.438, gpu=(3119, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=20, loss=2.5353/0.0039/3.0709, @=36.057
+[trajsimi.py:141 train()] -> eval.     i_ep=20, mseloss=150.3115, hr=0.833,0.895,1.000,0.802,0.865,0.999, gpu=3090, ram=2003, @=0.149
+[trajsimi.py:128 train()] -> training. ep-batch=21-0, loss=2.6909, @=3.646, gpu=(3088, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=21-1000, loss=2.5588, @=14.264, gpu=(3107, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=21-2000, loss=2.5163, @=27.207, gpu=(3319, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=21, loss=2.5299/0.0039/3.0641, @=39.151
+[trajsimi.py:141 train()] -> eval.     i_ep=21, mseloss=150.0283, hr=0.832,0.896,1.000,0.802,0.866,0.998, gpu=3421, ram=2003, @=0.150
+[trajsimi.py:128 train()] -> training. ep-batch=22-0, loss=2.5647, @=3.647, gpu=(3409, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=22-1000, loss=2.4017, @=15.675, gpu=(3522, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=22-2000, loss=2.5494, @=26.769, gpu=(3429, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=22, loss=2.5284/0.0039/3.0618, @=38.156
+[trajsimi.py:141 train()] -> eval.     i_ep=22, mseloss=150.2731, hr=0.834,0.895,1.000,0.800,0.868,0.998, gpu=3525, ram=2003, @=0.156
+[trajsimi.py:128 train()] -> training. ep-batch=23-0, loss=2.3895, @=3.721, gpu=(3534, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=23-1000, loss=2.3639, @=14.723, gpu=(3453, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=23-2000, loss=2.4849, @=25.210, gpu=(3430, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=23, loss=2.5224/0.0040/3.0541, @=36.354
+[trajsimi.py:141 train()] -> eval.     i_ep=23, mseloss=149.3305, hr=0.835,0.897,1.000,0.801,0.866,0.999, gpu=3536, ram=2003, @=0.148
+[trajsimi.py:128 train()] -> training. ep-batch=24-0, loss=2.6802, @=3.722, gpu=(3458, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=24-1000, loss=2.9026, @=14.367, gpu=(3410, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=24-2000, loss=2.5446, @=24.749, gpu=(3402, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=24, loss=2.5219/0.0040/3.0536, @=35.469
+[trajsimi.py:141 train()] -> eval.     i_ep=24, mseloss=148.1248, hr=0.834,0.898,1.000,0.798,0.867,0.998, gpu=3382, ram=2003, @=0.149
+[trajsimi.py:128 train()] -> training. ep-batch=25-0, loss=2.8003, @=3.672, gpu=(3399, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=25-1000, loss=2.6494, @=14.677, gpu=(3410, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=25-2000, loss=2.3261, @=25.186, gpu=(3401, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=25, loss=2.5227/0.0040/3.0545, @=36.294
+[trajsimi.py:141 train()] -> eval.     i_ep=25, mseloss=150.2676, hr=0.833,0.897,1.000,0.801,0.867,0.998, gpu=3402, ram=2003, @=0.152
+[trajsimi.py:128 train()] -> training. ep-batch=26-0, loss=2.5220, @=3.692, gpu=(3395, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=26-1000, loss=2.6003, @=14.030, gpu=(3384, 24564), ram=2003
+[trajsimi.py:128 train()] -> training. ep-batch=26-2000, loss=2.2515, @=24.161, gpu=(3379, 24564), ram=2003
+[trajsimi.py:136 train()] -> training. i_ep=26, loss=2.5145/0.0040/3.0441, @=35.563
+[trajsimi.py:141 train()] -> eval.     i_ep=26, mseloss=149.4614, hr=0.833,0.897,1.000,0.799,0.866,0.998, gpu=3467, ram=2003, @=0.140
+[trajsimi.py:157 train()] -> training end. @=970.111, best_epoch=21, best_hr_eval=0.8022
+[trajsimi.py:169 train()] -> test. @=0.369, mseloss=150.7339, hr=0.811,0.875,0.999,0.777,0.839,0.995, gpu=3458, ram=2033, @=0.369
+[train_trajsimi.py:39 main()] -> [EXPFlag]model=TSMini,dataset=beijing_20200,fn=frechet,task_train_time=970.111169,task_test_time=0.369132,hr10=0.811500,hr50=0.874940,hr50in10=0.998850,hr5=0.776700,hr20=0.839300,hr20in5=0.994700

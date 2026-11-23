@@ -1,0 +1,7 @@
+# Python 3.10-3.12. Upstream ships no requirements file; these are what its code imports.
+# torch picks CUDA, Apple MPS or CPU at runtime (see "Local changes" in readme.md).
+torch==2.5.1
+numpy==1.26.4
+scipy==1.13.1       # tools/feature_distance.py
+matplotlib==3.9.2   # imported by tools/grid.py
+h5py==3.11.0        # prepare.py reads ../TSMini/data/<prefix>.h5
