@@ -1,0 +1,6 @@
+fraction,n_train,hr5,hr20,hr20in5,hr10,hr50,hr50in10,best_epoch,best_hr_eval,train_time_s,log
+0.2,1400,0.344500,0.470925,0.675400,,,,29,0.3824,2531,exp/log/fraction_beijing_20200_20pct.log
+0.4,2800,0.435900,0.566250,0.789900,,,,29,0.4920,2431,exp/log/fraction_beijing_20200_40pct.log
+0.6,4200,0.478200,0.609925,0.849100,,,,29,0.5290,2467,exp/log/fraction_beijing_20200_60pct.log
+0.8,5600,0.505500,0.635000,0.874200,,,,27,0.5590,2512,exp/log/fraction_beijing_20200_80pct.log
+1.0,7000,0.533900,0.650575,0.888300,,,,29,0.5846,3888,exp/log/fraction_beijing_20200_100pct.log

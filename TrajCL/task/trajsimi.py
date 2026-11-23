@@ -36,11 +36,12 @@ class TrajSimi:
         self.encoder = encoder
         self.dic_datasets = TrajSimi.load_trajsimi_dataset()
 
-        self.checkpoint_filepath = '{}/{}_trajsimi_{}_{}_best{}.pt' \
+        self.checkpoint_filepath = '{}/{}_trajsimi_{}_{}_best{}{}.pt' \
                                     .format(Config.checkpoint_dir, Config.dataset_prefix, \
                                             Config.trajsimi_encoder_name, \
                                             Config.trajsimi_measure_fn_name, \
-                                            Config.dumpfile_uniqueid)
+                                            Config.dumpfile_uniqueid, \
+                                            Config.trajsimi_checkpoint_suffix)
         
         self.cellspace = pickle.load(open(Config.dataset_cell_file, 'rb'))
         self.cellembs = tool_funcs.load_cell_embs(Config.dataset_embs_file).to(Config.device) # tensor
@@ -238,7 +239,9 @@ class TrajSimi:
         
         count_i = 0
         batch_size = len_datasets if len_datasets < Config.trajsimi_batch_size else Config.trajsimi_batch_size
-        counts = math.ceil( (len_datasets / batch_size)**2 )
+        # batches per epoch are based on the full training set, so runs with a smaller
+        # --trajsimi_train_frac get the same amount of training, only less data
+        counts = math.ceil( (self.dic_datasets['n_trains_full'] / batch_size)**2 )
 
         while count_i < counts:
             dataset_idxs_sample = random.sample(range(len_datasets), k = batch_size)
@@ -292,10 +295,20 @@ class TrajSimi:
         trains_traj, evals_traj, tests_traj = trains_traj.merc_seq.values, evals_traj.merc_seq.values, tests_traj.merc_seq.values
         trains_simi, evals_simi, tests_simi, max_distance = read_trajsimi_simi_dataset(trajsimi_simi_dataset_file)
         
+        # use only the first share of the training trajectories (the data is already shuffled,
+        # so the subsets are random and nested: the 20% subset is part of the 40% subset, etc.)
+        n_trains_full = len(trains_traj)
+        if Config.trajsimi_train_frac < 1.0:
+            n = int(round(n_trains_full * Config.trajsimi_train_frac))
+            trains_traj = trains_traj[:n]
+            trains_simi = np.asarray(trains_simi)[:n, :n]
+            logging.info('[trajsimi] using {} of {} training trajectories (trajsimi_train_frac={})'.format(
+                         n, n_trains_full, Config.trajsimi_train_frac))
+
         # trains_traj : [[[lon, lat_in_merc], [], ..], [], ...]
         # trains_simi : list of list
         return {'trains_traj': trains_traj, 'evals_traj': evals_traj, 'tests_traj': tests_traj, \
                 'trains_simi': trains_simi, 'evals_simi': evals_simi, 'tests_simi': tests_simi, \
-                'max_distance': max_distance}
+                'max_distance': max_distance, 'n_trains_full': n_trains_full}
 
 
