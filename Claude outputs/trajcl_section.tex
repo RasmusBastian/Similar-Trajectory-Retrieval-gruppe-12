@@ -1,0 +1,122 @@
+% =====================================================================
+% Section: Implement TrajCL  (Sprint 3 -> 6.3 Sprint Execution)
+% Backlog item 6 in Table 6.1: "Implement TrajCL" (21 SP)
+%
+% FIGURES: copy these three files from the repo into your report's figure folder
+% (adjust the paths in \includegraphics below to match it):
+%   TrajCL/exp/beijing_training_curves.png        -> Figure: training curves
+%   TrajCL/exp/beijing_search_quality.png         -> Figure: search quality
+%   TrajCL/exp/beijing_query_5_comparisons.png    -> Figure: query #5 example
+%
+% REFERENCES: \cite{trajcl} is the TrajCL paper ([3] in your bibliography).
+% Swap in the BibTeX key you use. The \ref labels to Sprint 0/1 are placeholders:
+% replace them with your actual labels for Sections 3.3.5 and 4.3.5.
+% =====================================================================
+
+\subsection{Implement TrajCL}
+\label{sec:sprint3-trajcl}
+
+With the Beijing dataset available from Sprint 2 (see Section~\ref{sec:beijing-dataset}), the team could implement and train TrajCL, which had been postponed since Sprint 1. As described in Section~\ref{sec:tsmini-trajcl} and Section~\ref{sec:explore-trajcl-tsmini}, TrajCL learns a 256-dimensional embedding per trajectory, so the similarity between two trajectories is the L1 distance between their embeddings~\cite{trajcl}. The goal of this task was to train TrajCL to approximate the Fréchet distance on the Beijing data, evaluate how well it retrieves the most similar trajectories, and make its output available in the project database.
+
+\subsubsection*{Adapting the implementation}
+
+The official implementation of TrajCL targets Python~3.7 and PyTorch~1.8.1 and assumes a CUDA GPU. The team copied the code into the repository and updated it to Python~3.11 and PyTorch~2.1.1, the same versions as TSMini, so both models can share a setup. Hard-coded GPU calls were removed so the code also runs on CPU, and a debugging setting (\texttt{set\_detect\_anomaly}) that made each training batch roughly eight times slower was disabled.
+
+While working with the code, the team found a bug in the dual-feature attention module. The spatial attention masks were expanded with \texttt{repeat} instead of \texttt{repeat\_interleave}, so an attention head could receive the spatial mask of another trajectory in the same batch. As a result, the embedding of a trajectory depended on which other trajectories it was batched with. This was fixed in our version. In addition, pre-training was restricted to the first 70\% of the trajectories so that it never sees the evaluation and test data.
+
+\subsubsection*{Data and training setup}
+
+To make a fair comparison with TSMini possible, TrajCL uses exactly the same input as TSMini: the 49{,}934 Beijing trajectories with 20--200 points inside central Beijing, the same precomputed Fréchet ground truth, and the same split. A script (\texttt{prepare\_beijing.py}) converts TSMini's files into TrajCL's format instead of building a separate dataset. Fine-tuning uses 10{,}000 trajectories, split into 7{,}000 for training, 1{,}000 for evaluation and 2{,}000 for testing.
+
+Training TrajCL consists of three steps that each depend on the previous one. The team collected them in a single script (\texttt{train\_pipeline.py}) that skips steps whose output already exists, so an interrupted run can be resumed:
+
+\begin{enumerate}
+    \item \textbf{Cell embeddings (node2vec):} the area is divided into 100\,m grid cells, and each cell is given a vector based on how trajectories move between cells.
+    \item \textbf{Contrastive pre-training:} the encoder learns to recognise two augmented versions (masked and subset) of the same trajectory as similar, without any similarity labels.
+    \item \textbf{Fine-tuning:} the pre-trained encoder is trained to make the L1 distance between embeddings match the Fréchet distance.
+\end{enumerate}
+
+The estimated training time on a laptop CPU was more than 40 hours in total, with fine-tuning alone taking up to 35 hours. The final run was therefore done on a GPU with 24\,GB of memory, where the full pipeline took about 1.5 hours, as shown in Table~\ref{tab:trajcl-training-time}. The hyperparameters were kept at the defaults of the official implementation.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lrrl}
+        \hline
+        \textbf{Step} & \textbf{Epochs} & \textbf{Time} & \textbf{Result} \\
+        \hline
+        Cell embeddings (node2vec) & 20 & 13 min & Loss 13.1 $\rightarrow$ 2.39 \\
+        Contrastive pre-training   & 20 & 15 min & Loss 2.59 $\rightarrow$ 0.30, best epoch 17 \\
+        Fine-tuning to Fréchet     & 30 & 66 min & Best epoch 29 \\
+        Embedding all trajectories & --  & 7 s    & 49{,}934 $\times$ 256 \\
+        \hline
+    \end{tabular}
+    \caption{Training steps for TrajCL on the Beijing dataset, run on a GPU.}
+    \label{tab:trajcl-training-time}
+\end{table}
+
+% ---------------- FIGURE 1: training curves ----------------
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figures/beijing_training_curves.png}
+    \caption{Training of TrajCL on the Beijing dataset: loss of the node2vec cell embeddings (left), loss of the contrastive pre-training (middle), and hit ratios on the evaluation set during fine-tuning (right). The dashed lines show the test-set scores of the best model.}
+    \label{fig:trajcl-training-curves}
+\end{figure}
+
+Figure~\ref{fig:trajcl-training-curves} shows that the pre-training loss levels off after about five epochs. During fine-tuning, the hit ratios increase sharply between epochs 5 and 7 and then improve only slowly. The best model was found in the last epoch, which means the model was still improving slightly when training stopped.
+
+\subsubsection*{Results}
+
+The fine-tuned model was first evaluated on the 2{,}000 test trajectories using the hit ratio, which measures how many of the true $k$ most similar trajectories (by Fréchet distance) are found among the $k$ nearest embeddings. Table~\ref{tab:trajcl-test-results} shows the results. HR@5 and HR@20 compare the top 5 and top 20 respectively, while R5@20 measures how many of the true top 5 appear among the predicted top 20.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lcc}
+        \hline
+        \textbf{Metric} & \textbf{Evaluation set} & \textbf{Test set} \\
+        \hline
+        HR@5   & 0.586 & 0.534 \\
+        HR@20  & 0.715 & 0.652 \\
+        R5@20  & 0.940 & 0.889 \\
+        \hline
+    \end{tabular}
+    \caption{Hit ratios of TrajCL fine-tuned to the Fréchet distance on the Beijing dataset.}
+    \label{tab:trajcl-test-results}
+\end{table}
+
+The test set only contains 2{,}000 trajectories, while the system has to search all 49{,}934. The team therefore also evaluated TrajCL on the full dataset, using 50 random queries that were not part of fine-tuning. For each query, the 10 nearest trajectories by embedding were compared with the 10 nearest by exact Fréchet distance.
+
+% ---------------- FIGURE 2: search quality ----------------
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figures/beijing_search_quality.png}
+    \caption{Search quality of TrajCL on all 49{,}934 Beijing trajectories, for 50 random queries. Left: share of the exact Fréchet top 10 found within the $k$ nearest embeddings. Right: number of the exact top 10 found in the embedding top 10, per query.}
+    \label{fig:trajcl-search-quality}
+\end{figure}
+
+As seen in Figure~\ref{fig:trajcl-search-quality}, the embedding top 10 contained on average 3.2 of the true top 10 (HR@10 = 0.322), with large differences between queries, ranging from 0 to 7. On the full dataset, TrajCL is therefore not precise enough to replace the exact Fréchet distance on its own. However, the left plot shows that the true top 10 is almost always close to the top of the embedding ranking. A shortlist of the 50 nearest embeddings contains 67\% of the true top 10, the 200 nearest contain 89\%, and the 1{,}000 nearest contain more than 99\%.
+
+This matters because of the difference in speed. Searching all embeddings took 24\,ms per query, while computing the exact Fréchet distance to every trajectory takes around 12 seconds per query. TrajCL can therefore be used as a filter: the embeddings select a shortlist of, for example, 200 candidates, and only these are re-ranked with the exact Fréchet distance. This keeps the retrieval fast while recovering most of the true most similar trajectories.
+
+% ---------------- FIGURE 3: query example ----------------
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figures/beijing_query_5_comparisons.png}
+    \caption{The 10 trajectories TrajCL finds most similar to query trajectory \#5 (red). Matches marked with * are not among the 10 most similar by exact Fréchet distance.}
+    \label{fig:trajcl-query-5}
+\end{figure}
+
+Figure~\ref{fig:trajcl-query-5} shows an example for a single query. Five of the ten trajectories found by TrajCL are also in the exact Fréchet top 10. All ten matches follow the long north--south road that makes up most of the query, so the embeddings capture which roads a trajectory uses. The matches that are not in the exact top 10 share this road but take detours at the start or end, which gives them a Fréchet distance of 1{,}177--1{,}627\,m, compared to 757--1{,}026\,m for the correct matches. Since the Fréchet distance is determined by the largest deviation between two trajectories, such detours are penalised heavily, whereas TrajCL's embeddings weigh them less.
+
+The pre-training step also includes the robustness test from the TrajCL paper~\cite{trajcl}, where each trajectory must be found again from a modified copy of itself. The average rank of the correct trajectory stayed between 9.5 and 11.9 when up to 50\% of the points were distorted, but increased from 9.3 to 187 when the share of removed points went from 10\% to 50\%. TrajCL is thus robust to noise in the GPS points, but sensitive to trajectories with few points.
+
+\subsubsection*{Integration with the database}
+
+After fine-tuning, every trajectory is embedded once (\texttt{embed.py}), so searches do not require the model or a GPU. The embeddings are stored in a separate \texttt{trajcl} schema in the project database, linked to the trajectories already stored for TSMini. The trained models and cell embeddings are stored in the same schema, so other team members can restore them instead of training again. A database function returns the $k$ most similar trajectories together with their geometry, which can be shown directly on the map in the frontend:
+
+\begin{verbatim}
+SELECT * FROM trajcl.similar('beijing_20200', 5);
+\end{verbatim}
+
+\subsubsection*{Limitations}
+
+The results above come from a single training run, and the full-dataset evaluation only uses 50 queries, so the numbers are subject to some uncertainty. Since the best model was found in the last epoch of fine-tuning, a longer training run could improve the results. Finally, TSMini has so far only been trained on the Rome dataset, so the two models cannot yet be compared on the same data. TSMini is being trained on the same Beijing data and split, after which both models will be compared on the same queries and metrics.
