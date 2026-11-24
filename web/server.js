@@ -2,6 +2,7 @@
 // Serves the page in public/ and a small JSON API that reads from the project's PostgreSQL database.
 // Start: npm start  ->  http://localhost:3000
 
+import { fileURLToPath } from "node:url";
 import express from "express";
 import pg from "pg";
 
@@ -20,7 +21,7 @@ export const MEASURES = [
 export const K = { min: 1, max: 50, default: 10 };
 
 // Connection to the Docker database from docker-compose.yml (override with PGHOST, PGPORT, ... like the Python scripts).
-const db = new pg.Pool({
+export const db = new pg.Pool({
   host: process.env.PGHOST ?? "localhost",
   port: Number(process.env.PGPORT ?? 5433),
   user: process.env.PGUSER ?? "str",
@@ -28,8 +29,9 @@ const db = new pg.Pool({
   database: process.env.PGDATABASE ?? "trajectories",
 });
 
-const app = express();
-app.use(express.static("public")); // index.html, style.css, app.js
+export const app = express();
+// index.html, style.css, app.js. The path is relative to this file, so it works from any folder.
+app.use(express.static(fileURLToPath(new URL("public", import.meta.url))));
 
 // GET /api/options: everything the page needs to fill its drop-downs.
 // For each dataset: which ground-truth measures and which models have data.
@@ -92,5 +94,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: message });
 });
 
-const port = Number(process.env.PORT ?? 3000);
-app.listen(port, () => console.log(`Demo UI on http://localhost:${port}`));
+// Only start listening when this file is run directly (npm start / node server.js),
+// not when the tests import it. The tests start their own server on a free port.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const port = Number(process.env.PORT ?? 3000);
+  app.listen(port, () => console.log(`Demo UI on http://localhost:${port}`));
+}
