@@ -62,6 +62,27 @@ app.get("/api/options", async (req, res) => {
   });
 });
 
+// GET /api/datasets/beijing_20200/queries?measure=frechet
+// The trajectory ids that can be used as query: those that have ground truth for the measure.
+// We use the test split, i.e. trajectories the models were not trained on. If a dataset has no
+// test split, we fall back to all trajectories with ground truth.
+app.get("/api/datasets/:dataset/queries", async (req, res) => {
+  const { dataset } = req.params;
+  const { measure } = req.query;
+  if (!MEASURES.some((m) => m.id === measure)) {
+    return res.status(400).json({ error: `Unknown measure '${measure}'.` });
+  }
+
+  const sql = `
+    SELECT idx FROM tsmini.ground_truth
+    WHERE dataset = $1 AND measure = $2 AND ($3::text IS NULL OR split = $3)
+    ORDER BY idx`;
+  let result = await db.query(sql, [dataset, measure, "test"]);
+  if (result.rowCount === 0) result = await db.query(sql, [dataset, measure, null]);
+
+  res.json({ dataset, measure, ids: result.rows.map((row) => row.idx) });
+});
+
 // If a database query fails, send the error to the page as { error: "..." } instead of crashing.
 app.use((err, req, res, next) => {
   console.error(err);
