@@ -3,23 +3,23 @@
 Share TSMini/TrajCL data and trained models with the team as one zip per dataset.
 Only needs the Python standard library. Run from anywhere; paths are relative to the repository root.
 
-    python scripts/share_data.py pack --prefix beijing_20200    # -> shared/beijing_20200_<date>_<name>.zip
-    python scripts/share_data.py list shared/<file>.zip          # who packed it and what is inside
-    python scripts/share_data.py unpack shared/<file>.zip        # put the files in place (add --force, see below)
-    python scripts/share_data.py import shared/<file>.zip        # unpack and import into PostgreSQL
+    python database/scripts/share_data.py pack --prefix beijing_20200    # -> database/shared/beijing_20200_<date>_<name>.zip
+    python database/scripts/share_data.py list database/shared/<file>.zip          # who packed it and what is inside
+    python database/scripts/share_data.py unpack database/shared/<file>.zip        # put the files in place (add --force, see below)
+    python database/scripts/share_data.py import database/shared/<file>.zip        # unpack and import into PostgreSQL
 
 Workflow: pack -> upload the zip to the team's shared folder -> teammates download and import into PostgreSQL.
 `import` verifies the zip in a temporary directory and removes those files afterward. `unpack` is available
 only when someone explicitly needs a working local copy for training.
 
 Packed (only what exists), for prefix P:
-    TSMini/data/P.h5, TSMini/data/P_traj_simi_dict_*.pkl           trajectories and ground truth
-    TSMini/exp/snapshots/P_*.pt, TSMini/exp/embeddings_P.npz        trained model, embeddings
-    TrajCL/data/P, P_newsimi_*.pkl, P_cell*_cellspace.pkl, P_cell*_embs.pkl   dataset, node2vec cell embeddings
-    TrajCL/exp/snapshots/P_*.pt, TrajCL/exp/embeddings_P.npz        node2vec, pre-trained, fine-tuned models
-    TSMini/exp/log/*.log, TrajCL/exp/log/*.log                      training logs
-TrajCL/data/P_traj_simi_dict_*.pkl is a copy of TSMini's, so it is not packed but copied by unpack.
-Files tracked by git (e.g. TSMini's committed Rome model) are skipped: teammates get them with git pull.
+    models/TSMini/data/P.h5, models/TSMini/data/P_traj_simi_dict_*.pkl           trajectories and ground truth
+    models/TSMini/exp/snapshots/P_*.pt, models/TSMini/exp/embeddings_P.npz        trained model, embeddings
+    models/TrajCL/data/P, P_newsimi_*.pkl, P_cell*_cellspace.pkl, P_cell*_embs.pkl   dataset, node2vec cell embeddings
+    models/TrajCL/exp/snapshots/P_*.pt, models/TrajCL/exp/embeddings_P.npz        node2vec, pre-trained, fine-tuned models
+    models/TSMini/exp/log/*.log, models/TrajCL/exp/log/*.log                      training logs
+models/TrajCL/data/P_traj_simi_dict_*.pkl is a copy of TSMini's, so it is not packed but copied by unpack.
+Files tracked by git (e.g. the committed Rome model) are skipped: teammates get them with git pull.
 """
 import argparse
 import datetime
@@ -35,24 +35,24 @@ import sys
 import tempfile
 import zipfile
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MANIFEST = "manifest.json"
 
 
 def bundle_patterns(p):
     return [
-        f"TSMini/data/{p}.h5",
-        f"TSMini/data/{p}_traj_simi_dict_*.pkl",
-        f"TSMini/exp/snapshots/{p}_*.pt",
-        f"TSMini/exp/embeddings_{p}.npz",
-        "TSMini/exp/log/*.log",
-        f"TrajCL/data/{p}",
-        f"TrajCL/data/{p}_newsimi_*.pkl",
-        f"TrajCL/data/{p}_cell*_cellspace.pkl",
-        f"TrajCL/data/{p}_cell*_embs.pkl",
-        f"TrajCL/exp/snapshots/{p}_*.pt",
-        f"TrajCL/exp/embeddings_{p}.npz",
-        "TrajCL/exp/log/*.log",
+        f"models/TSMini/data/{p}.h5",
+        f"models/TSMini/data/{p}_traj_simi_dict_*.pkl",
+        f"models/TSMini/exp/snapshots/{p}_*.pt",
+        f"models/TSMini/exp/embeddings_{p}.npz",
+        "models/TSMini/exp/log/*.log",
+        f"models/TrajCL/data/{p}",
+        f"models/TrajCL/data/{p}_newsimi_*.pkl",
+        f"models/TrajCL/data/{p}_cell*_cellspace.pkl",
+        f"models/TrajCL/data/{p}_cell*_embs.pkl",
+        f"models/TrajCL/exp/snapshots/{p}_*.pt",
+        f"models/TrajCL/exp/embeddings_{p}.npz",
+        "models/TrajCL/exp/log/*.log",
     ]
 
 
@@ -82,12 +82,12 @@ def local(rel):
 # ----------------------------------------------------------------------------- pack
 def pack(args):
     # files tracked by git reach teammates through git already (and git may change their line endings)
-    tracked = set(git("ls-files", "TSMini", "TrajCL").splitlines())
+    tracked = set(git("ls-files", "models/TSMini", "models/TrajCL").splitlines())
     rels = sorted({os.path.relpath(path, ROOT).replace(os.sep, "/")
                    for pattern in bundle_patterns(args.prefix)
                    for path in glob.glob(local(pattern)) if os.path.isfile(path)} - tracked)
-    if not any(r.startswith(f"TSMini/data/{args.prefix}") for r in rels):
-        sys.exit(f"TSMini/data/{args.prefix}.h5 not found, nothing to share for prefix {args.prefix}")
+    if not any(r.startswith(f"models/TSMini/data/{args.prefix}") for r in rels):
+        sys.exit(f"models/TSMini/data/{args.prefix}.h5 not found, nothing to share for prefix {args.prefix}")
 
     who = git("config", "user.name") or getpass.getuser()
     now = datetime.datetime.now()
@@ -98,7 +98,7 @@ def pack(args):
                 "git_commit": git("rev-parse", "--short", "HEAD"), "files": files}
 
     out = args.out or os.path.join(
-        ROOT, "shared", f"{args.prefix}_{now:%Y%m%d-%H%M}_{re.sub(r'[^A-Za-z0-9]+', '-', who).strip('-')}.zip")
+        ROOT, "database", "shared", f"{args.prefix}_{now:%Y%m%d-%H%M}_{re.sub(r'[^A-Za-z0-9]+', '-', who).strip('-')}.zip")
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     tmp = out + ".part"
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as z:
@@ -172,12 +172,12 @@ def unpack(args):
 
     # TrajCL uses the same ground truth as TSMini; prepare_*.py copies it, so do the same here
     p = m["prefix"]
-    if os.path.exists(local(f"TrajCL/data/{p}")):
-        for src in glob.glob(local(f"TSMini/data/{p}_traj_simi_dict_*.pkl")):
-            dst = local("TrajCL/data/" + os.path.basename(src))
+    if os.path.exists(local(f"models/TrajCL/data/{p}")):
+        for src in glob.glob(local(f"models/TSMini/data/{p}_traj_simi_dict_*.pkl")):
+            dst = local("models/TrajCL/data/" + os.path.basename(src))
             if not os.path.exists(dst) or sha256(dst) != sha256(src):
                 shutil.copyfile(src, dst)
-                print(f"  copied {os.path.basename(src)} to TrajCL/data")
+                print(f"  copied {os.path.basename(src)} to models/TrajCL/data")
 
     print(f"{len(new)} added, {len(conflicts)} replaced, {len(same)} already identical")
     print("Load it into your local database (from the repository root, project db running):")
@@ -221,7 +221,7 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("pack", help="zip a dataset's data, models and logs")
     a.add_argument("--prefix", default="beijing_20200", help="e.g. beijing_20200 or rome_20200")
-    a.add_argument("--out", help="zip path (default: shared/<prefix>_<date>_<name>.zip)")
+    a.add_argument("--out", help="zip path (default: database/shared/<prefix>_<date>_<name>.zip)")
     a.set_defaults(fn=pack)
     a = sub.add_parser("list", help="show who packed a zip and what is inside")
     a.add_argument("zip")
@@ -231,7 +231,7 @@ def main():
     a.add_argument("--force", action="store_true", help="replace local files that differ from the zip")
     a.set_defaults(fn=unpack)
     a = sub.add_parser("import", help="load a data zip into PostgreSQL without keeping local copies")
-    a.add_argument("zip", help="bundle created by scripts/share_data.py pack")
+    a.add_argument("zip", help="bundle created by database/scripts/share_data.py pack")
     a.set_defaults(fn=import_zip)
     args = ap.parse_args()
     args.fn(args)

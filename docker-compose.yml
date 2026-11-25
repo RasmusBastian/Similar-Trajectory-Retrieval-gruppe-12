@@ -19,7 +19,7 @@ services:
       - "${DB_PORT:-5433}:5432"
     volumes:
       - dbdata:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./database/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U str -d trajectories"]
       interval: 2s
@@ -30,7 +30,7 @@ services:
     profiles: [api]
     build:
       context: .
-      dockerfile: src/TrajectoryRetrieval.Api/Dockerfile
+      dockerfile: frontend/src/TrajectoryRetrieval.Api/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: "Host=db;Port=5432;Database=trajectories;Username=str;Password=str"
@@ -46,7 +46,7 @@ services:
   # ZIP import mounts a temporary extracted bundle here; no dataset copy is kept in the repository.
   tsmini-import:
     build:
-      context: ./TSMini
+      context: ./models/TSMini
       dockerfile_inline: |
         FROM python:3.12-slim
         RUN pip install --no-cache-dir numpy==1.26.4 h5py==3.11.0 "psycopg[binary]"
@@ -59,10 +59,10 @@ services:
       PGUSER: str
       PGPASSWORD: str
       PGDATABASE: trajectories
-      BEIJING_DATA_ROOT: /beijing/TSMini
+      BEIJING_DATA_ROOT: /beijing/models/TSMini
     volumes:
-      - ./TSMini:/app/TSMini:ro
-      - ./db/init:/app/sql:ro
+      - ./models/TSMini:/app/TSMini:ro
+      - ./database/db/init:/app/sql:ro
       - ${BEIJING_DATA_DIR:-.}:/beijing:ro
     depends_on:
       db:
@@ -74,7 +74,7 @@ services:
   #   docker compose run --rm --build trajcl-import --prefix beijing_20200 --restore  (add --force to overwrite)
   trajcl-import:
     build:
-      context: ./TrajCL
+      context: ./models/TrajCL
       dockerfile_inline: |
         FROM python:3.12-slim
         RUN pip install --no-cache-dir numpy==1.26.4 h5py==3.11.0 "psycopg[binary]"
@@ -88,11 +88,11 @@ services:
       PGPASSWORD: str
       PGDATABASE: trajectories
       TSMINI_ROOT: /app/TSMini
-      BEIJING_DATA_ROOT: /beijing/TrajCL
+      BEIJING_DATA_ROOT: /beijing/models/TrajCL
     volumes:
-      - ./TrajCL:/app/TrajCL
-      - ./TSMini:/app/TSMini:ro
-      - ./db/init:/app/sql:ro
+      - ./models/TrajCL:/app/TrajCL
+      - ./models/TSMini:/app/TSMini:ro
+      - ./database/db/init:/app/sql:ro
       - ${BEIJING_DATA_DIR:-.}:/beijing:ro
     depends_on:
       db:

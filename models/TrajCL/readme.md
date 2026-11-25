@@ -113,7 +113,7 @@ The `trajcl-import --restore` option is only for workflows that explicitly need 
 From PowerShell in the repository root, compare TrajCL's embedding search with exact Frechet search for Beijing trajectory 210:
 
 ```powershell
-python scripts/query_models.py --model trajcl --idx 210
+python models/scripts/query_models.py --model trajcl --idx 210
 ```
 
 Replace `210` with an existing trajectory index (`0`–`49933`). Use `--k` to change the number of displayed matches or `--rerank` to change the exact reranking candidate count.

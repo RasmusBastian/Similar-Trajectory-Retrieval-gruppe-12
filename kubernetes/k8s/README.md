@@ -20,8 +20,8 @@ or use these files, which have the namespace set. `diff` first shows what would 
 
 ```bash
 git clone https://github.com/RasmusBastian/Similar-Trajectory-Retrieval-gruppe-12.git && cd Similar-Trajectory-Retrieval-gruppe-12
-sudo k3s kubectl diff -f k8s/ -R
-sudo k3s kubectl apply -f k8s/ -R
+sudo k3s kubectl diff -f kubernetes/k8s/ -R
+sudo k3s kubectl apply -f kubernetes/k8s/ -R
 ```
 
 Useful commands:

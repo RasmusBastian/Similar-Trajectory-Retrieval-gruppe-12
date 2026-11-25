@@ -1,9 +1,9 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/TrajectoryRetrieval.Api/TrajectoryRetrieval.Api.csproj" />
-    <Project Path="src/TrajectoryRetrieval.Core/TrajectoryRetrieval.Core.csproj" />
+  <Folder Name="/frontend/">
+    <Project Path="frontend/src/TrajectoryRetrieval.Api/TrajectoryRetrieval.Api.csproj" />
+    <Project Path="frontend/src/TrajectoryRetrieval.Core/TrajectoryRetrieval.Core.csproj" />
   </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/TrajectoryRetrieval.Tests/TrajectoryRetrieval.Tests.csproj" />
+  <Folder Name="/tests/dotnet/">
+    <Project Path="tests/dotnet/TrajectoryRetrieval.Tests/TrajectoryRetrieval.Tests.csproj" />
   </Folder>
 </Solution>

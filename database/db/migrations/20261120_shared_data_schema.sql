@@ -1,6 +1,6 @@
 -- Run once against an existing database created before the shared data schema.
 -- Example:
---   docker compose exec -T db psql -U str -d trajectories < db/migrations/20261120_shared_data_schema.sql
+--   docker compose exec -T db psql -U str -d trajectories < database/db/migrations/20261120_shared_data_schema.sql
 BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS data;

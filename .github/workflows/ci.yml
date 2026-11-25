@@ -2,8 +2,8 @@
 # Make it required for merging into main under Settings → Branches → Branch protection.
 # Kode køres når der pushes til main og pulles fra main
 # C# build and tests bygger hele løsningen (TrajectoryRetrieval.slnx) med .NET 10 og kører xUnit-testene
-# Python tests installerer requirements.txt med Python 3.12 (samme som Dockerfilen) og kører pytest
-# Docker image bygger API- og importer-images, når testene er grønne. Ved push/merge til main uploades de også til ghcr.io
+# TrajCL smoke test checks the model pipeline with synthetic data.
+# Docker builds the API image after the checks pass.
 
 name: CI
 
@@ -28,42 +28,47 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Restore
-        run: dotnet restore TrajectoryRetrieval.slnx
+      - name: Restore API
+        run: dotnet restore frontend/src/TrajectoryRetrieval.Api/TrajectoryRetrieval.Api.csproj
 
-      - name: Build
-        run: dotnet build TrajectoryRetrieval.slnx --no-restore -c Release
+      - name: Restore tests
+        run: dotnet restore tests/dotnet/TrajectoryRetrieval.Tests/TrajectoryRetrieval.Tests.csproj
+
+      - name: Build API
+        run: dotnet build frontend/src/TrajectoryRetrieval.Api/TrajectoryRetrieval.Api.csproj --no-restore -c Release
+
+      - name: Build tests
+        run: dotnet build tests/dotnet/TrajectoryRetrieval.Tests/TrajectoryRetrieval.Tests.csproj --no-restore -c Release
 
       - name: Test
-        run: dotnet test TrajectoryRetrieval.slnx --no-build -c Release --logger "console;verbosity=normal"
+        run: dotnet test tests/dotnet/TrajectoryRetrieval.Tests/TrajectoryRetrieval.Tests.csproj --no-build -c Release --logger "console;verbosity=normal"
 
-  python:
-    name: Python tests
+  trajcl:
+    name: TrajCL smoke test
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: python
+        working-directory: models/TrajCL
     steps:
       - uses: actions/checkout@v4
 
-      # Same version as python/Dockerfile
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
           cache: pip
-          cache-dependency-path: python/requirements.txt
+          cache-dependency-path: models/TrajCL/requirements.txt
 
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Test
-        run: pytest -v
+      - name: Smoke test
+        run: python smoke_test.py
 
   # Builds the images on every run, but only pushes them to ghcr.io on pushes to main
   # (i.e. after a merge), and only when the tests above have passed.
   docker:
     name: Docker image (${{ matrix.name }})
-    needs: [dotnet, python]
+    needs: [dotnet, trajcl]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -73,10 +78,7 @@ jobs:
         include:
           - name: trajectory-api
             context: .
-            dockerfile: src/TrajectoryRetrieval.Api/Dockerfile
-          - name: trajectory-importer
-            context: python
-            dockerfile: python/Dockerfile
+            dockerfile: frontend/src/TrajectoryRetrieval.Api/Dockerfile
     env:
       PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:

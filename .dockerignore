@@ -1,6 +1,6 @@
 .git/
 legacy/
-python/
+models/python/
 **/bin/
 **/obj/
 **/.vs/

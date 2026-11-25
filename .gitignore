@@ -22,9 +22,9 @@ venv/
 # Local overrides for docker-compose (ports)
 .env
 
-# TSMini datasets (large; regenerate with TSMini/prepare_rome.py)
-TSMini/data/*.h5
-TSMini/data/*.pkl
+# TSMini datasets (large; regenerate with models/TSMini/prepare_rome.py)
+models/TSMini/data/*.h5
+models/TSMini/data/*.pkl
 
-# Data/model bundles made by scripts/share_data.py (shared via Google Drive, not git)
-shared/
+# Data/model bundles made by database/scripts/share_data.py (shared via Google Drive, not git)
+database/shared/
