@@ -2,15 +2,13 @@
 -- Filled by TrajCL/import_to_db.py (docker compose run --rm --build trajcl-import).
 -- Also run by that script, so it must stay re-runnable (IF NOT EXISTS / OR REPLACE).
 --
--- TrajCL is trained on exactly the same trajectories, splits and ground truth as TSMini
--- (TrajCL/prepare_rome.py and prepare_beijing.py copy them), so those live only in the tsmini schema:
--- trajcl.embedding.idx is tsmini.trajectory.idx.
+-- TrajCL shares trajectories and ground truth in the data schema with TSMini.
 
 CREATE SCHEMA IF NOT EXISTS trajcl;
 
 -- TrajCL's bundled robustness-test inputs, split into individual trajectory rows.
 CREATE TABLE IF NOT EXISTS trajcl.test_trajectory (
-    dataset TEXT NOT NULL REFERENCES tsmini.dataset ON DELETE CASCADE,
+    dataset TEXT NOT NULL REFERENCES data.dataset ON DELETE CASCADE,
     variant TEXT NOT NULL CHECK (variant IN ('raw', 'downsampling', 'distort')),
     rate    DOUBLE PRECISION NOT NULL DEFAULT 0,
     role    TEXT NOT NULL CHECK (role IN ('query', 'database')),
@@ -27,7 +25,7 @@ CREATE TABLE IF NOT EXISTS trajcl.embedding (
     idx       INT NOT NULL,
     embedding REAL[] NOT NULL,
     PRIMARY KEY (dataset, model, idx),
-    FOREIGN KEY (dataset, idx) REFERENCES tsmini.trajectory ON DELETE CASCADE
+    FOREIGN KEY (dataset, idx) REFERENCES data.trajectory ON DELETE CASCADE
 );
 
 -- Output: training logs (exp/log/*.log)
@@ -65,6 +63,6 @@ LANGUAGE sql STABLE AS $$
         ORDER BY l1 LIMIT k
     )
     SELECT row_number() OVER (ORDER BY d.l1), d.idx, d.l1, t.geom_wgs84
-    FROM d JOIN tsmini.trajectory t ON t.dataset = p_dataset AND t.idx = d.idx
+    FROM d JOIN data.trajectory t ON t.dataset = p_dataset AND t.idx = d.idx
     ORDER BY d.l1
 $$;

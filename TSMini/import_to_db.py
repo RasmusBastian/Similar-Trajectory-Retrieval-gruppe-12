@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Put TSMini's inputs and outputs into the project database (schema tsmini, see db/init/03_tsmini.sql),
+Put TSMini's inputs and outputs into the project database (shared inputs in data, outputs in tsmini),
 so they can be looked at with any PostgreSQL client and shared without passing files around.
 
-    inputs   data/<prefix>.h5                             -> tsmini.dataset, tsmini.trajectory
-             data/<prefix>_traj_simi_dict_<measure>.pkl   -> tsmini.ground_truth_set, tsmini.ground_truth
+    inputs   data/<prefix>.h5                             -> data.dataset, data.trajectory
+             data/<prefix>_traj_simi_dict_<measure>.pkl   -> data.ground_truth_set, data.ground_truth
     outputs  exp/embeddings_<prefix>.npz                  -> tsmini.embedding
              exp/log/*.log                                -> tsmini.training_log
              exp/snapshots/*.pt, *.png                    -> tsmini.file
@@ -25,7 +25,7 @@ import h5py
 import numpy as np
 import psycopg
 
-SQL_SCHEMA = os.environ.get("TSMINI_SQL", "/app/sql/03_tsmini.sql")
+SQL_DIR = os.environ.get("SQL_DIR", "/app/sql")
 N_TRAIN, N_EVAL, N_TEST = 7000, 1000, 2000  # TSMini's split of the 10,000 trajectories from int(0.7 * n)
 
 
@@ -63,9 +63,9 @@ def import_dataset(cur, prefix, h5_path):
         n = int(f.attrs["n"])
         merc_range = [float(v) for v in f.attrs["merc_range"]]
         trajs = [f[f"/trajs_merc/{i}"][:] for i in range(n)]
-    cur.execute("INSERT INTO tsmini.dataset (name, n, merc_range, source) VALUES (%s, %s, %s, %s)",
+    cur.execute("INSERT INTO data.dataset (name, n, merc_range, source) VALUES (%s, %s, %s, %s)",
                 (prefix, n, merc_range, "shared Beijing dataset zip"))
-    with cur.copy("COPY tsmini.trajectory (dataset, idx, split, n_points, geom) FROM STDIN") as copy:
+    with cur.copy("COPY data.trajectory (dataset, idx, split, n_points, geom) FROM STDIN") as copy:
         for i, t in enumerate(trajs):
             copy.write_row((prefix, i, split_of(i, n), len(t), linestring(t.tolist(), 3857)))
     print(f"  dataset {prefix}: {n} trajectories")
@@ -75,10 +75,10 @@ def import_dataset(cur, prefix, h5_path):
 def import_ground_truth(cur, prefix, measure, pkl_path, n):
     with open(pkl_path, "rb") as f:
         trains, evals, tests, max_distance = pickle.load(f)
-    cur.execute("INSERT INTO tsmini.ground_truth_set (dataset, measure, max_distance) VALUES (%s, %s, %s)",
+    cur.execute("INSERT INTO data.ground_truth_set (dataset, measure, max_distance) VALUES (%s, %s, %s)",
                 (prefix, measure, float(max_distance)))
     off = int(n * 0.7)
-    with cur.copy("COPY tsmini.ground_truth (dataset, measure, split, row, idx, distances) FROM STDIN "
+    with cur.copy("COPY data.ground_truth (dataset, measure, split, row, idx, distances) FROM STDIN "
                   "WITH (FORMAT binary)") as copy:
         copy.set_types(["text", "text", "text", "int4", "int4", "float4[]"])
         for split, upper, base in (("train", trains, 0), ("eval", evals, N_TRAIN), ("test", tests, N_TRAIN + N_EVAL)):
@@ -137,26 +137,27 @@ def main():
     ckpts = sorted(glob.glob(os.path.join(root, "exp/snapshots", prefix + "_*.pt")))
 
     with connect() as conn, conn.cursor() as cur:
-        with open(SQL_SCHEMA) as f:
-            cur.execute(f.read())
+        for schema_file in ("02_data.sql", "03_tsmini.sql"):
+            with open(os.path.join(SQL_DIR, schema_file)) as f:
+                cur.execute(f.read())
         if args.replace:
-            cur.execute("TRUNCATE tsmini.dataset, tsmini.trajectory, tsmini.ground_truth_set, "
-                        "tsmini.ground_truth, tsmini.embedding, tsmini.training_log, tsmini.file CASCADE")
+            cur.execute("TRUNCATE data.dataset, data.trajectory, data.ground_truth_set, "
+                        "data.ground_truth, tsmini.embedding, tsmini.training_log, tsmini.file CASCADE")
             print("deleted existing TSMini data")
 
         print("inputs:")
-        if exists(cur, "SELECT 1 FROM tsmini.dataset WHERE name = %s", prefix):
+        if exists(cur, "SELECT 1 FROM data.dataset WHERE name = %s", prefix):
             print(f"  dataset {prefix} already imported")
         elif not os.path.isfile(h5):
             sys.exit(f"  {h5} not found, nothing else can be imported without it")
         else:
             import_dataset(cur, prefix, h5)
-        cur.execute("SELECT n FROM tsmini.dataset WHERE name = %s", (prefix,))
+        cur.execute("SELECT n FROM data.dataset WHERE name = %s", (prefix,))
         n = cur.fetchone()[0]
 
         for pkl in sorted(glob.glob(os.path.join(root, "data", f"{prefix}_traj_simi_dict_*.pkl"))):
             measure = os.path.basename(pkl)[len(prefix + "_traj_simi_dict_"):-len(".pkl")]
-            if exists(cur, "SELECT 1 FROM tsmini.ground_truth_set WHERE dataset = %s AND measure = %s", prefix, measure):
+            if exists(cur, "SELECT 1 FROM data.ground_truth_set WHERE dataset = %s AND measure = %s", prefix, measure):
                 print(f"  ground truth {measure} already imported")
             else:
                 import_ground_truth(cur, prefix, measure, pkl, n)

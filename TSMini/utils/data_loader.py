@@ -33,15 +33,15 @@ def read_trajsimi_traj_dataset(file_path):
     if _use_database():
         prefix = os.path.basename(file_path)
         with _db_connection() as conn, conn.cursor() as cur:
-            cur.execute('SELECT n, merc_range FROM tsmini.dataset WHERE name = %s', (prefix,))
+            cur.execute('SELECT n, merc_range FROM data.dataset WHERE name = %s', (prefix,))
             row = cur.fetchone()
             if row is None:
-                raise RuntimeError(f'Dataset {prefix!r} is not imported into tsmini.dataset')
+                raise RuntimeError(f'Dataset {prefix!r} is not imported into data.dataset')
             n, merc_range = row
             merc_range = list(merc_range)
             offset_idx = int(n * 0.7)
             cur.execute("""SELECT idx, ST_X((dp).geom), ST_Y((dp).geom)
-                           FROM (SELECT idx, ST_DumpPoints(geom) AS dp FROM tsmini.trajectory
+                           FROM (SELECT idx, ST_DumpPoints(geom) AS dp FROM data.trajectory
                                  WHERE dataset = %s AND idx >= %s AND idx < %s) p
                            ORDER BY idx, (dp).path[1]""", (prefix, offset_idx, offset_idx + 10000))
             grouped = {}
@@ -86,14 +86,14 @@ def read_trajsimi_simi_dataset(file_path):
         prefix, measure = base.split('_traj_simi_dict_', 1)
         measure = measure.removesuffix('.pkl')
         with _db_connection() as conn, conn.cursor() as cur:
-            cur.execute('SELECT max_distance FROM tsmini.ground_truth_set WHERE dataset = %s AND measure = %s', (prefix, measure))
+            cur.execute('SELECT max_distance FROM data.ground_truth_set WHERE dataset = %s AND measure = %s', (prefix, measure))
             row = cur.fetchone()
             if row is None:
-                raise RuntimeError(f'Ground truth {prefix}/{measure} is not imported into tsmini.ground_truth_set')
+                raise RuntimeError(f'Ground truth {prefix}/{measure} is not imported into data.ground_truth_set')
             max_distance = row[0]
             parts = []
             for split, n_rows in (('train', 7000), ('eval', 1000), ('test', 2000)):
-                cur.execute('SELECT distances FROM tsmini.ground_truth WHERE dataset = %s AND measure = %s AND split = %s ORDER BY row', (prefix, measure, split))
+                cur.execute('SELECT distances FROM data.ground_truth WHERE dataset = %s AND measure = %s AND split = %s ORDER BY row', (prefix, measure, split))
                 matrix = np.empty((n_rows, n_rows), dtype=np.float32)
                 n_read = 0
                 for row_idx, values in enumerate(cur):

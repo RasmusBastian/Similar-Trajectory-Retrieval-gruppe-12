@@ -38,13 +38,13 @@ def load_all(h5_path):
         from utils.data_loader import _db_connection
         # The training loader intentionally selects the 10,000-trajectory slice; search needs the full dataset.
         with _db_connection() as conn, conn.cursor() as cur:
-            cur.execute("SELECT merc_range FROM tsmini.dataset WHERE name = %s", (prefix,))
+            cur.execute("SELECT merc_range FROM data.dataset WHERE name = %s", (prefix,))
             row = cur.fetchone()
             if row is None:
-                raise RuntimeError(f"Dataset {prefix!r} is not imported into tsmini.dataset")
+                raise RuntimeError(f"Dataset {prefix!r} is not imported into data.dataset")
             merc_range = list(row[0])
             cur.execute("""SELECT idx, (dp).path[1], ST_X((dp).geom), ST_Y((dp).geom)
-                           FROM (SELECT idx, ST_DumpPoints(geom) AS dp FROM tsmini.trajectory WHERE dataset = %s) q
+                           FROM (SELECT idx, ST_DumpPoints(geom) AS dp FROM data.trajectory WHERE dataset = %s) q
                            ORDER BY idx, (dp).path[1]""", (prefix,))
             grouped = {}
             for idx, _, x, y in cur:

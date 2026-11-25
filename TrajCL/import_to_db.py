@@ -8,7 +8,7 @@ so nothing has to be trained twice, and get them back onto disk on another machi
     exp/log/*.log                                  -> trajcl.training_log
     exp/embeddings_<prefix>.npz (embed.py)         -> trajcl.embedding
 
-The trajectories, splits and ground truth are the same as TSMini's and are stored in the tsmini schema.
+The trajectories, splits and ground truth are shared in the data schema.
 If that dataset is not in the database yet, it is imported from ../TSMini/data first.
 
 Normally run through Docker from the repository root:
@@ -48,15 +48,15 @@ def exists(cur, sql, *params):
     return cur.fetchone()[0]
 
 
-def ensure_tsmini_dataset(cur, prefix):
-    """TrajCL's embeddings point at tsmini.trajectory, so make sure the dataset is there."""
-    with open(os.path.join(SQL_DIR, "03_tsmini.sql")) as f:
+def ensure_shared_dataset(cur, prefix):
+    """TrajCL's embeddings point at data.trajectory, so make sure the dataset is there."""
+    with open(os.path.join(SQL_DIR, "02_data.sql")) as f:
         cur.execute(f.read())
-    if exists(cur, "SELECT 1 FROM tsmini.dataset WHERE name = %s", prefix):
+    if exists(cur, "SELECT 1 FROM data.dataset WHERE name = %s", prefix):
         return True
     h5 = os.path.join(TSMINI_ROOT, "data", prefix + ".h5")
     if not os.path.isfile(h5):
-        print(f"  dataset {prefix} is not in tsmini.dataset and {h5} is missing, skipping embeddings")
+        print(f"  dataset {prefix} is not in data.dataset and {h5} is missing, skipping embeddings")
         return False
     sys.path.insert(0, TSMINI_ROOT)
     from import_to_db import import_dataset, import_ground_truth  # TSMini's importer
@@ -126,7 +126,7 @@ def import_logs(cur, root, prefix):
 def import_embeddings(cur, prefix, npz_path):
     data = np.load(npz_path)
     emb, model = data["emb"], str(data["model"])
-    cur.execute("SELECT n FROM tsmini.dataset WHERE name = %s", (prefix,))
+    cur.execute("SELECT n FROM data.dataset WHERE name = %s", (prefix,))
     n = cur.fetchone()[0]
     if len(emb) != n:
         print(f"  {npz_path} has {len(emb)} rows but dataset {prefix} has {n}, skipping embeddings")
@@ -176,7 +176,7 @@ def main():
             print("done")
             return
 
-        has_dataset = ensure_tsmini_dataset(cur, args.prefix)
+        has_dataset = ensure_shared_dataset(cur, args.prefix)
         with open(os.path.join(SQL_DIR, "04_trajcl.sql")) as f:
             cur.execute(f.read())
         print("files:")

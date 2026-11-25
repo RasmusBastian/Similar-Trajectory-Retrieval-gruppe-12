@@ -40,7 +40,7 @@ services:
       db:
         condition: service_healthy
 
-  # One-off job: imports TSMini's inputs and outputs (TSMini/data, TSMini/exp) into the tsmini schema.
+  # One-off job: imports shared inputs (TSMini/data) into data and model outputs (TSMini/exp) into tsmini.
   # Not started by `up`, run with:
   #   docker compose run --rm --build tsmini-import              (add --replace to re-import)
   # ZIP import mounts a temporary extracted bundle here; no dataset copy is kept in the repository.

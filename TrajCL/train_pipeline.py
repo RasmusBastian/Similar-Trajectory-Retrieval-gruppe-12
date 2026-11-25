@@ -96,8 +96,8 @@ def database_mode():
 def check_database_inputs(dataset_prefix):
     from utils.data_loader import _db_connection
     with _db_connection() as conn, conn.cursor() as cur:
-        cur.execute('''SELECT EXISTS (SELECT 1 FROM tsmini.dataset WHERE name = %s),
-                              EXISTS (SELECT 1 FROM tsmini.ground_truth_set WHERE dataset = %s AND measure = %s)''',
+        cur.execute('''SELECT EXISTS (SELECT 1 FROM data.dataset WHERE name = %s),
+                              EXISTS (SELECT 1 FROM data.ground_truth_set WHERE dataset = %s AND measure = %s)''',
                     (dataset_prefix, dataset_prefix, MEASURE))
         has_dataset, has_truth = cur.fetchone()
     if not has_dataset or not has_truth:
@@ -122,7 +122,7 @@ def database_step_exists(step, prefix):
                         (f'exp/snapshots/{prefix}_trajsimi_TrajCL_frechet_best.pt',))
         elif step == 'embed':
             cur.execute("""SELECT EXISTS (
-                           SELECT 1 FROM trajcl.embedding e JOIN tsmini.dataset d ON d.name = e.dataset
+                           SELECT 1 FROM trajcl.embedding e JOIN data.dataset d ON d.name = e.dataset
                            WHERE e.dataset = %s AND e.model = %s AND
                                  (SELECT count(*) FROM trajcl.embedding x
                                   WHERE x.dataset = e.dataset AND x.model = e.model) = d.n)""",

@@ -38,10 +38,10 @@ def load_trajectories(h5_path):
         prefix = os.path.basename(h5_path).removesuffix('.h5')
         df = _database_trajectories(prefix)
         with _db_connection() as conn, conn.cursor() as cur:
-            cur.execute('SELECT merc_range FROM tsmini.dataset WHERE name = %s', (prefix,))
+            cur.execute('SELECT merc_range FROM data.dataset WHERE name = %s', (prefix,))
             row = cur.fetchone()
             if row is None:
-                raise RuntimeError(f'Dataset {prefix!r} is not imported into tsmini.dataset')
+                raise RuntimeError(f'Dataset {prefix!r} is not imported into data.dataset')
             x_min, x_max, y_min, y_max = row[0]
         merc_seq = df.merc_seq.tolist()
         n = len(merc_seq)

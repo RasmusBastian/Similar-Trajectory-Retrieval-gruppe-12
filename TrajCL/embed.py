@@ -8,7 +8,7 @@ approximates the measure the model was fine-tuned on. import_to_db.py stores the
 
 Reads   exp/snapshots/<prefix>_trajsimi_TrajCL_<measure>_best.pt   fine-tuned model
         data/<prefix>, data/<prefix>_cell100_cellspace.pkl, data/<prefix>_cell100_embdim*_embs.pkl
-Writes  exp/embeddings_<prefix>.npz   emb: [n, 256] float32, row i = trajectory i (= tsmini.trajectory.idx),
+Writes  exp/embeddings_<prefix>.npz   emb: [n, 256] float32, row i = trajectory i (= data.trajectory.idx),
                                       model: checkpoint file name
 """
 import argparse

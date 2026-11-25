@@ -25,7 +25,7 @@ def main() -> int:
     sql = f"""
     WITH q AS MATERIALIZED (
         SELECT idx, geom, n_points, split
-        FROM tsmini.trajectory WHERE dataset = 'beijing_20200' AND idx = {args.idx}
+        FROM data.trajectory WHERE dataset = 'beijing_20200' AND idx = {args.idx}
     ), embedding_query AS MATERIALIZED (
         SELECT model, embedding FROM {schema}.embedding
         WHERE dataset = 'beijing_20200' AND idx = {args.idx}
@@ -43,7 +43,7 @@ def main() -> int:
         FROM embedding_distances
     ), exact_distances AS MATERIALIZED (
         SELECT t.idx, ST_FrechetDistance(q.geom, t.geom) AS frechet
-        FROM q CROSS JOIN tsmini.trajectory t
+        FROM q CROSS JOIN data.trajectory t
         WHERE t.dataset = 'beijing_20200' AND t.idx <> {args.idx}
     ), exact_ranked AS MATERIALIZED (
         SELECT idx, frechet, row_number() OVER (ORDER BY frechet, idx) AS rank

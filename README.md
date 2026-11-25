@@ -57,10 +57,65 @@ Everything other groups are responsible for sits behind an interface in `Core/Ab
 We build our own simple implementations first and swap in the other groups' solutions later
 through dependency injection in `Program.cs`. `ITrajectoryRetriever` is our own core logic.
 
-## Data
+## Database setup and structure
 
 Database initialization installs PostGIS and creates only the `tsmini` and `trajcl` schemas.
 There are no Harbin road-network or travel-time tables in the project database.
+
+### Local database setup
+
+Compose starts PostgreSQL with PostGIS. The `dbdata` named volume persists rows between container restarts; `docker compose down` keeps it, while `docker compose down -v` deletes it. SQL files in `db/init/` run only when that volume is first created. They create the PostGIS extension, the shared `data` schema, and the `tsmini` and `trajcl` model schemas, with their tables, indexes, and similarity functions; they do not seed dataset rows.
+If you already have a database volume from before the shared `data` schema was introduced, apply `db/migrations/20261120_shared_data_schema.sql` once, then run both import jobs once to refresh their similarity functions:
+
+```powershell
+Get-Content db/migrations/20261120_shared_data_schema.sql | docker compose exec -T db psql -U str -d trajectories
+docker compose run --rm --build tsmini-import --prefix beijing_20200
+docker compose run --rm --build trajcl-import --prefix beijing_20200
+```
+
+| Connection location | Host | Port | Database | User / password |
+|---|---|---:|---|---|
+| Windows/macOS/Linux host or database client | `localhost` | `5433` | `trajectories` | `str` / `str` |
+| Another Compose service | `db` | `5432` | `trajectories` | `str` / `str` |
+
+The local database inspected on 2026-11-20 is PostgreSQL 17.6 with PostGIS 3.5.3. Default `docker compose up -d` runs the database only. The API and import jobs are optional Compose profiles/one-off services.
+
+### Schema ownership and tables
+
+The `data` schema owns datasets, trajectories and ground truth shared by all models. `tsmini` and `trajcl` own their model-specific embeddings, files and logs; both reference the shared `data` rows.
+
+| Schema | Table | Purpose / key relationships |
+|---|---|---|
+| `data` | `dataset` | Dataset metadata: name, row count, Web Mercator bounds, source. Parent of trajectories and ground-truth sets. |
+| `data` | `trajectory` | One row per `(dataset, idx)`, with point count, train/eval/test/unused split, projected `geom` in EPSG:3857, and generated `geom_wgs84` in EPSG:4326. |
+| `data` | `ground_truth_set` | Measure and normalization maximum per dataset, e.g. Fréchet. Supports multiple measures per dataset. |
+| `data` | `ground_truth` | Full symmetric distance matrices, stored as one `REAL[]` per trajectory row and split. References the measure set and trajectory. |
+| `tsmini` | `embedding` | TSMini vector per `(dataset, model, idx)`; a 128-number `REAL[]` for the current model, referencing `data.trajectory`. |
+| `tsmini` | `file` | Checkpoints/other TSMini artifacts as `BYTEA`, with path and size. |
+| `tsmini` | `training_log` | Imported TSMini log text, keyed by filename. |
+| `trajcl` | `test_trajectory` | Robustness inputs keyed by dataset, variant, rate, role and index; references `data.dataset`. |
+| `trajcl` | `embedding` | TrajCL vector per `(dataset, model, idx)`; a 256-number `REAL[]` referencing `data.trajectory`. |
+| `trajcl` | `file` | Cell-space data, node2vec cell embeddings, and trained checkpoints as `BYTEA`. |
+| `trajcl` | `training_log` | Imported TrajCL log text, keyed by filename. |
+
+Both schemas expose a `similar(dataset, idx, k, model)` function. It ranks stored vectors by L1 distance and returns rank, trajectory index, L1 distance, and WGS84 geometry. `scripts/query_models.py` also calculates exact discrete Fréchet distance in PostGIS and reports top-k overlap and top-candidate reranking recall.
+
+### Current local database contents
+
+The inspected local database contains only the Beijing dataset `beijing_20200`:
+
+| Relation / data | Current contents |
+|---|---|
+| `data.dataset` | 1 dataset, 49,934 trajectories |
+| `data.trajectory` | 7,000 train, 1,000 eval, 2,000 test, 39,934 unused |
+| `data.ground_truth_set` / `data.ground_truth` | 1 Fréchet measure; 10,000 rows across train/eval/test |
+| `tsmini.embedding` | 49,934 TSMini vectors, 128 dimensions |
+| `trajcl.embedding` | 49,934 TrajCL vectors, 256 dimensions |
+| `trajcl.test_trajectory` | 120,857 rows across raw, downsampling, and distortion test settings |
+| `tsmini.file` / `trajcl.file` | 1 TSMini artifact; 5 TrajCL artifacts/checkpoints |
+| `tsmini.training_log` / `trajcl.training_log` | 1 TSMini log; 7 TrajCL logs |
+
+At inspection, PostgreSQL reported a total database size of 887 MB. Counts and size can change if new data or model runs are imported.
 
 ### Beijing data for TSMini and TrajCL
 
@@ -72,8 +127,8 @@ docker compose up -d db
 python scripts/share_data.py import "C:\path\to\beijing_20200_<date>_<name>.zip"
 ```
 
-TSMini trajectories and Fréchet ground truth go into `tsmini.dataset`, `tsmini.trajectory`, and
-`tsmini.ground_truth`; TrajCL's bundled test inputs are split into rows in `trajcl.test_trajectory`. Beijing model
+TSMini trajectories and Fréchet ground truth go into `data.dataset`, `data.trajectory`, and
+`data.ground_truth`; TrajCL's bundled test inputs are split into rows in `trajcl.test_trajectory`. Beijing model
 commands use PostgreSQL as their input source. The query command does not need local dataset or checkpoint files.
 
 Beijing model loaders select PostgreSQL automatically. The connection defaults to localhost port 5433, database
@@ -129,29 +184,9 @@ python scripts/database_dump.py restore shared/beijing_20200_20261117.dump
 Restore replaces the contents of that local `trajectories` database. The script checks the checksum and streams the
 archive into PostgreSQL without unpacking it to a data folder.
 
-### TrajCL (schema `trajcl`)
+### Querying the trained models
 
-[db/init/04_trajcl.sql](db/init/04_trajcl.sql): TrajCL's trained models, node2vec cell embeddings, logs and
-per-trajectory embeddings, saved and restored with `docker compose run --rm --build trajcl-import` (see
-[TrajCL/readme.md](TrajCL/readme.md)). TrajCL uses the same trajectories and ground truth as TSMini, so those
-are only in `tsmini`; `trajcl.embedding.idx` is `tsmini.trajectory.idx`.
-
-### TSMini (schema `tsmini`)
-
-Inputs and outputs of [TSMini](TSMini/) in [db/init/03_tsmini.sql](db/init/03_tsmini.sql).
-The zip import command above loads Beijing trajectories, model outputs, and logs into PostgreSQL without leaving local
-copies. The low-level TSMini importer can still be run directly, but expects files under `TSMini/data/` and `TSMini/exp/`.
-For teammates, use the ZIP import command above.
-
-| Table | Content |
-|---|---|
-| `dataset`, `trajectory` | Input: Beijing trajectories from `data/beijing_20200.h5`, with train/eval/test/unused splits |
-| `ground_truth_set`, `ground_truth` | Input: Fréchet distances TSMini trains on, split into train/eval/test rows |
-| `embedding` | Output: the 128-number embedding of every trajectory |
-| `training_log` | Output: `exp/log/*.log` |
-| `file` | Output: the trained model (`exp/snapshots/*.pt`) and plots, as `bytea` |
-
-Run from PowerShell in the repository root after `docker compose up -d db`. This prints the embedding rank, L1 distance, exact route Frechet distance in metres, whether each match is in the true exact top 10, and the top-50 reranking recall. Exact Frechet is calculated against all Beijing trajectories; the database is only read:
+Run from PowerShell in the repository root after `docker compose up -d db`. This prints embedding rank, L1 distance, exact route Fréchet distance in metres, whether each match is in the true exact top 10, and top-50 reranking recall. Exact Fréchet is calculated against all Beijing trajectories; the database is only read:
 
 ```powershell
 python scripts/query_models.py --model tsmini --idx 210
@@ -160,7 +195,7 @@ python scripts/query_models.py --model trajcl --idx 210
 
 Replace `210` with a trajectory index from `0` to `49933`. Use `--k 5` to show 5 embedding matches or `--rerank 100` to rerank the nearest 100 embedding candidates. The query is by an existing trajectory index, not a new raw GPS route.
 
-TSMini inputs use `tsmini.dataset`, `tsmini.trajectory`, and `tsmini.ground_truth`. TrajCL's robustness inputs
+TSMini inputs use `data.dataset`, `data.trajectory`, and `data.ground_truth`. TrajCL's robustness inputs
 use `trajcl.test_trajectory`; cell-space data and model files
 are stored in `trajcl.file`. Set `PGHOST=localhost` and `TRAINING_DATA_SOURCE=db` to load model inputs from PostgreSQL.
 
