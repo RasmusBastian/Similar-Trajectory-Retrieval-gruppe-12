@@ -59,6 +59,7 @@ class Config:
     
     trajsimi_batch_size = 128 # 128
     trajsimi_epoch = 1
+    trajsimi_train_frac = 1.0 # share of the 7,000 training trajectories to use (eval/test sets are unchanged)
     trajsimi_training_bad_patience = 5
     trajsimi_learning_rate = 0.002 # 0.0001 # 0.0002
     trajsimi_training_lr_degrade_step = 15 # 5

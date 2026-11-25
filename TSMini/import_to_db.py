@@ -103,21 +103,25 @@ def split_of(idx, n):
     return "unused"
 
 
-def import_dataset(cur, prefix, h5_path, raw_path):
+def import_dataset(cur, prefix, h5_path, match_path):
+    """match_path: the matching_result.csv prepare_rome.py made this dataset from (None if not available)."""
     with h5py.File(h5_path, "r") as f:
         n = int(f.attrs["n"])
         merc_range = [float(v) for v in f.attrs["merc_range"]]
         trajs = [f[f"/trajs_merc/{i}"][:] for i in range(n)]
-    ids = source_ids(raw_path, trajs) if raw_path else None
-    if raw_path and ids is None:
-        print("  could not match .h5 trajectories to matching_result.csv, source_traj_id left empty")
+    name = os.path.basename(match_path) if match_path else None
+    ids = source_ids(match_path, trajs) if match_path else None
+    if not match_path:
+        print("  source csv not found, source_traj_id left empty")
+    elif ids is None:
+        print(f"  could not match .h5 trajectories to {name}, source_traj_id left empty")
 
     cur.execute("INSERT INTO tsmini.dataset (name, n, merc_range, source) VALUES (%s, %s, %s, %s)",
-                (prefix, n, merc_range, "TSMini/prepare_rome.py on matching_result.csv"))
+                (prefix, n, merc_range, f"TSMini/prepare_rome.py on {name or 'a matching_result.csv'}"))
     with cur.copy("COPY tsmini.trajectory (dataset, idx, source_traj_id, split, n_points, geom) FROM STDIN") as copy:
         for i, t in enumerate(trajs):
             copy.write_row((prefix, i, ids[i] if ids else None, split_of(i, n), len(t), linestring(t.tolist(), 3857)))
-    print(f"  dataset {prefix}: {n} trajectories" + (", linked to raw traj_id" if ids else ""))
+    print(f"  dataset {prefix}: {n} trajectories" + (f", linked to Traj_id in {name}" if ids else ""))
     return n
 
 
@@ -180,6 +184,11 @@ def main():
 
     root, prefix = args.root, args.prefix
     raw = args.raw if args.raw and os.path.isfile(args.raw) else None
+    # The csv the dataset was made from, to link each trajectory to its source Traj_id: Rome's raw file,
+    # or data/<city>_matching_result.csv for other cities (e.g. beijing, written by export_beijing.py)
+    city = prefix.split("_")[0]
+    match = raw if city == "rome" else os.path.join(root, "data", f"{city}_matching_result.csv")
+    match = match if match and os.path.isfile(match) else None
     h5 = os.path.join(root, "data", prefix + ".h5")
     npz = os.path.join(root, "exp", f"embeddings_{prefix}.npz")
     ckpts = sorted(glob.glob(os.path.join(root, "exp/snapshots", prefix + "_*.pt")))
@@ -206,7 +215,7 @@ def main():
         elif not os.path.isfile(h5):
             sys.exit(f"  {h5} not found, nothing else can be imported without it")
         else:
-            import_dataset(cur, prefix, h5, raw)
+            import_dataset(cur, prefix, h5, match)
         cur.execute("SELECT n FROM tsmini.dataset WHERE name = %s", (prefix,))
         n = cur.fetchone()[0]
 

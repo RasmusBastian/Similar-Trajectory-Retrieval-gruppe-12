@@ -29,7 +29,10 @@ class TrajSimi:
         # create dataloader
         len_dataset_trains = len(self.dic_datasets['trains_traj'])
         training_batch_size = min(len_dataset_trains, Config.trajsimi_batch_size)
-        train_dataset = TrajSimiDatasetTraining(self.dic_datasets['trains_traj'], training_batch_size)
+        # batches per epoch are based on the full training set, so runs with a smaller
+        # --trajsimi_train_frac get the same amount of training, only less data
+        train_dataset = TrajSimiDatasetTraining(self.dic_datasets['trains_traj'], training_batch_size,
+                                                n_iters_from = self.dic_datasets['n_trains_full'])
         
         duplicate_short_tolerance = Config.traj_duplicate_short_tolerance if Config.dataset == 'xian' else 0
         self.train_dataloader = DataLoader(train_dataset,
@@ -156,7 +159,7 @@ class TrajSimi:
                 break
             
         # test
-        checkpoint = torch.load(self.checkpoint_filepath)
+        checkpoint = torch.load(self.checkpoint_filepath, map_location=Config.device)
         self.encoder.load_state_dict(checkpoint['encoder'])
         self.encoder.eval()
 
@@ -260,11 +263,22 @@ class TrajSimi:
         trains_simi, evals_simi, tests_simi, max_distance = \
                 read_trajsimi_simi_dataset(trajsimi_simi_dataset_file)
         
+        # use only the first share of the training trajectories (the data is already shuffled,
+        # so the subsets are random and nested: the 20% subset is part of the 40% subset, etc.)
+        n_trains_full = len(trains_traj)
+        if Config.trajsimi_train_frac < 1.0:
+            n = int(round(n_trains_full * Config.trajsimi_train_frac))
+            trains_traj = trains_traj[:n]
+            trains_simi = np.asarray(trains_simi)[:n, :n]
+            logging.info('[trajsimi] using {} of {} training trajectories (trajsimi_train_frac={})'.format(
+                         n, n_trains_full, Config.trajsimi_train_frac))
+
         # trains_traj : [[[lon, lat_in_merc], [], ..], [], ...]
         # trains_simi : list of list
         return {'trains_traj': trains_traj, 'evals_traj': evals_traj, 'tests_traj': tests_traj, \
                 'trains_simi': trains_simi, 'evals_simi': evals_simi, 'tests_simi': tests_simi, \
-                'max_distance': max_distance, 'trajs_space_range': trajs_merc_range}
+                'max_distance': max_distance, 'trajs_space_range': trajs_merc_range,
+                'n_trains_full': n_trains_full}
 
 
 def collate_training(batch, space, duplicate_short_tolerance):
