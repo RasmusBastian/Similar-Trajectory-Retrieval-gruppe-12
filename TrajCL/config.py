@@ -77,6 +77,8 @@ class Config:
 
     trajsimi_batch_size = 128
     trajsimi_epoch = 30
+    trajsimi_train_frac = 1.0 # share of the 7,000 training trajectories to fine-tune on (eval/test sets are unchanged)
+    trajsimi_checkpoint_suffix = '' # added to the fine-tuned model's file name, e.g. '_frac20'
     trajsimi_training_bad_patience = 10
     trajsimi_learning_rate = 0.0001
     trajsimi_learning_weight_decay = 0.0001

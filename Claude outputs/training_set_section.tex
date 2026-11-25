@@ -1,0 +1,182 @@
+% ---------------------------------------------------------------------------
+% Definition of the training set
+% Sources: bj_data.zip (aSTEP files), beijing_20200_20261114-1424_jesper.zip (trained data,
+%          same sha256 as TSMini/data/beijing_20200.h5 and _traj_simi_dict_frechet.pkl),
+%          TSMini/export_beijing.py, TSMini/prepare_rome.py, TSMini/utils/data_loader.py,
+%          TrajCL/utils/data_loader.py, ConvTraj/prepare.py, ConvTraj/mynn/Traj_KNN.py,
+%          branch tsmini-fraction-experiment (commits 9da3212, be002ef),
+% Uses only standard LaTeX (no extra packages).
+% ---------------------------------------------------------------------------
+\subsection{Definition of the training set}
+\label{sec:training-set}
+
+To compare the models fairly, they must learn from the same data and be tested on
+the same data. This section defines the data every model uses: where the
+trajectories come from, how they are filtered and split, and how the training set
+is reduced to 20\,\%, 40\,\%, 60\,\%, 80\,\% and 100\,\% of its size. All models
+are trained on all five sizes; the results are presented in
+Section~\ref{sec:fraction-results}.
+
+\paragraph{The aSTEP files}
+As described in Section~\ref{sec:beijing-dataset}, the Beijing data from aSTEP
+consists of a training set in five sizes, a validation set and a test set
+(Table~\ref{tab:astep-files}). The training files are nested: every trajectory in
+\texttt{traj\_train\_20} is also in \texttt{traj\_train\_40}, and so on up to
+\texttt{traj\_train\_100}. The validation and test files have no trajectories in
+common with each other or with the training files.
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabular}{|l|r|}
+    \hline
+    \textbf{File} & \textbf{Trajectories} \\
+    \hline
+    \texttt{traj\_train\_20.csv}  & 372{,}102 \\
+    \texttt{traj\_train\_40.csv}  & 744{,}204 \\
+    \texttt{traj\_train\_60.csv}  & 1{,}116{,}306 \\
+    \texttt{traj\_train\_80.csv}  & 1{,}488{,}408 \\
+    \texttt{traj\_train\_100.csv} & 1{,}860{,}507 \\
+    \texttt{traj\_valid.csv}      & 620{,}169 \\
+    \texttt{traj\_test.csv}       & 620{,}169 \\
+    \hline
+  \end{tabular}
+  \caption{The trajectory files in the Beijing dataset from aSTEP.}
+  \label{tab:astep-files}
+\end{table}
+
+\paragraph{Sample used in this project}
+Computing the exact Fréchet distance between all pairs of 1.86 million trajectories
+is not feasible, so the models are trained on a sample. All trajectories in the
+sample are taken from \texttt{traj\_train\_100}, and the smaller training sets are
+created as subsets of our own training split (see \emph{Training subsets} below)
+instead of from the four smaller files. This keeps the evaluation and test sets
+exactly the same for every size, the Fréchet ground truth only has to be computed
+once, and the smaller training sets are guaranteed to be contained in the larger
+ones, just like in the aSTEP files.
+
+The trajectories are exported from the shared aSTEP database by the script
+\texttt{export\_beijing.py}. A trajectory is built from its map-matched road points
+and not from its GPS points, because the GPS points usually only contain the start
+and end of a trip. Each road point refers to an edge in the road network, and the
+edge is replaced by its start and end nodes, so a trajectory becomes the sequence
+of road network nodes it passes through. The order of the export is random but
+repeatable, since the trajectories are sorted by a hash of the seed (2000) and the
+trajectory id. The export stops when 50{,}000 trajectories that pass the filters
+below have been found. The sample is spread evenly over the aSTEP files: for
+example, 9{,}891 of the 50{,}000 trajectories (19.8\,\%) are also in
+\texttt{traj\_train\_20}. None of the trajectories are from \texttt{traj\_valid} or
+\texttt{traj\_test}; the evaluation and test sets used in this project are taken
+from the sample.
+
+\paragraph{Filtering and preprocessing}
+A trajectory is kept only if
+\begin{itemize}
+  \item it lies completely inside central Beijing, between 116.20--116.55\,°E and
+        39.75--40.03\,°N (about $30 \times 31$\,km, roughly inside the fifth ring
+        road), and
+  \item it has between 20 and 200 points.
+\end{itemize}
+The coordinates are then converted from longitude and latitude to Web Mercator
+metres by \texttt{prepare\_rome.py}, which is used for both Rome and Beijing.
+Consecutive duplicate points are removed, and the length filter is applied again.
+This leaves \textbf{49{,}934 trajectories}, which are shuffled with a fixed seed
+(2000) and stored as the dataset \texttt{beijing\_20200}. TrajCL and ConvTraj do not
+build their own datasets but convert these files to their own formats
+(\texttt{prepare\_beijing.py} and \texttt{prepare.py}), so all three models use the
+same trajectories in the same order.
+
+\paragraph{Splits}
+The data loaders in TSMini and TrajCL take a fixed block of 10{,}000 trajectories
+for training with a similarity measure, starting at 70\,\% of the dataset. This
+block is divided into 7{,}000 training, 1{,}000 evaluation and 2{,}000 test
+trajectories. ConvTraj uses the same training and test trajectories. The first
+70\,\% of the dataset is only used by TrajCL's self-supervised pre-training, which
+therefore never trains on the fine-tuning, evaluation or test trajectories.
+Table~\ref{tab:beijing-splits} shows the parts.
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabular}{|l|r|r|l|}
+    \hline
+    \textbf{Part} & \textbf{Indices} & \textbf{Trajectories} & \textbf{Used by} \\
+    \hline
+    Pre-training     & 0--34{,}952        & 34{,}953 & TrajCL pre-training \\
+    Training         & 34{,}953--41{,}952 & 7{,}000  & All models \\
+    Evaluation       & 41{,}953--42{,}952 & 1{,}000  & Model selection \\
+    Test             & 42{,}953--44{,}952 & 2{,}000  & Final scores \\
+    Remaining        & 44{,}953--49{,}933 & 4{,}981  & Search only \\
+    \hline
+    \textbf{Total}   &                    & \textbf{49{,}934} & \\
+    \hline
+  \end{tabular}
+  \caption{The parts of the Beijing sample (\texttt{beijing\_20200}), by index in
+  the shuffled dataset. All 49{,}934 trajectories are embedded and used as the
+  database when searching.}
+  \label{tab:beijing-splits}
+\end{table}
+
+\paragraph{Ground truth}
+The models learn to approximate the discrete Fréchet distance, computed with
+Euclidean distances in the Mercator plane. The exact distances are computed once by
+\texttt{prepare\_rome.py} between all pairs inside each split: $7{,}000 \times
+7{,}000$ for training, $1{,}000 \times 1{,}000$ for evaluation and $2{,}000 \times
+2{,}000$ for testing, about 27 million distances in total. Only the upper triangle
+of each matrix is stored, and the distances are divided by the largest distance in
+the ground truth before training, so all values lie between 0 and 1. Because a
+training subset uses the top-left block of the training matrix, no new distances
+have to be computed for the smaller training sets.
+
+\paragraph{Training subsets}
+The 20--80\,\% training sets are the first 20\,\%, 40\,\%, \ldots{} of the 7{,}000
+training trajectories (Table~\ref{tab:training-subsets}). Since the dataset was
+shuffled beforehand, each subset is a random sample, and the subsets are nested:
+the 20\,\% set is part of the 40\,\% set, and so on. The subsets are the same for
+all three models, and the evaluation and test sets are the same 1{,}000 and
+2{,}000 trajectories for every size, so the only thing that changes is how many
+trajectories a model learns from.
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabular}{|r|r|r|}
+    \hline
+    \textbf{Share} & \textbf{Training trajectories} & \textbf{Ground-truth pairs} \\
+    \hline
+    20\,\%  & 1{,}400 & 979{,}300 \\
+    40\,\%  & 2{,}800 & 3{,}918{,}600 \\
+    60\,\%  & 4{,}200 & 8{,}817{,}900 \\
+    80\,\%  & 5{,}600 & 15{,}677{,}200 \\
+    100\,\% & 7{,}000 & 24{,}496{,}500 \\
+    \hline
+  \end{tabular}
+  \caption{The five training set sizes. Ground-truth pairs are the distinct pairs
+  of training trajectories with a known Fréchet distance, $n(n-1)/2$.}
+  \label{tab:training-subsets}
+\end{table}
+
+\paragraph{How the subsets are used by each model}
+\begin{itemize}
+  \item \textbf{TSMini.} The share is set with the option
+        \texttt{trajsimi\_train\_frac}, and the script
+        \texttt{run\_fraction\_experiment.py} trains all five sizes one after the
+        other. Each batch consists of 128 trajectories drawn at random from the
+        subset. The number of batches per epoch is calculated from the full
+        training set ($\lceil (7{,}000/128)^2 \rceil = 2{,}991$) for every size. A
+        smaller training set therefore gets the same number of training steps, only
+        with less data, so the comparison is not affected by shorter epochs.
+  \item \textbf{TrajCL.} Only the fine-tuning step learns from the 7{,}000
+        training trajectories, so only this step uses the subsets. The cell
+        embeddings and the pre-training use the 34{,}953 pre-training trajectories
+        and are the same for every size.
+        % TODO: how the share is set, and whether batches per epoch stay the same
+  \item \textbf{ConvTraj.} The share is set with the option
+        \texttt{train\_ratio}, which uses the first share of the training
+        trajectories and therefore gives the same subsets as for TSMini.
+        % TODO: note that one epoch goes through the subset once (fewer batches for smaller sets)
+\end{itemize}
+
+\paragraph{Limitations of the definition}
+Since the subsets are nested and always taken from the start of the training
+split, which trajectories end up in the smaller sets is decided by the shuffle. All
+sizes are also taken from one sample of 49{,}934 trajectories, so the five sizes
+vary the number of training trajectories with a ground truth, not the use of the
+full aSTEP files.

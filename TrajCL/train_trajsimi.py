@@ -17,6 +17,11 @@ def parse_args():
     
     parser.add_argument('--trajsimi_measure_fn_name', type = str, help = '')
 
+    parser.add_argument('--trajsimi_train_frac', type = float, help = 'share of the training trajectories '
+                        'to fine-tune on, e.g. 0.2; eval/test sets and batches per epoch stay the same (default: 1.0)')
+    parser.add_argument('--trajsimi_checkpoint_suffix', type = str, help = 'added to the fine-tuned model file name, '
+                        'e.g. _frac20, so other fine-tuned models are not overwritten')
+
     args = parser.parse_args()
     return dict(filter(lambda kv: kv[1] is not None, vars(args).items()))
 

@@ -1,0 +1,67 @@
+% ---------------------------------------------------------------------------
+% Results of the training set size experiment
+% Put this in the section where the models' results are compared.
+% Source TSMini: results/beijing_20200/tsmini_fraction_experiment.csv
+%                (branch tsmini-fraction-experiment, commit be002ef)
+% ---------------------------------------------------------------------------
+\subsection{Effect of the training set size}
+\label{sec:fraction-results}
+
+Each model was trained on the five training set sizes defined in
+Section~\ref{sec:training-set} and scored on the same 2{,}000 test trajectories.
+Table~\ref{tab:fraction-results} shows the results. All runs use the same seed
+(2000). TSMini was trained on a GPU for up to 30 epochs, stopped early after 5
+epochs without improvement, and the model with the best HR@5 on the evaluation set
+was kept.
+% TODO: same setup sentence for TrajCL (fine-tuning) and ConvTraj, incl. hardware
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{|l|r|r|r|r|r|r|r|}
+    \hline
+    \textbf{Model} & \textbf{Share} & \textbf{Traj.} & \textbf{HR@5} &
+    \textbf{HR@20} & \textbf{R5@20} & \textbf{Best ep.} & \textbf{Time (s)} \\
+    \hline
+    TSMini   & 20\,\%  & 1{,}400 & 0.742 & 0.814 & 0.991 & 6  & 409 \\
+             & 40\,\%  & 2{,}800 & 0.758 & 0.828 & 0.994 & 9  & 519 \\
+             & 60\,\%  & 4{,}200 & 0.763 & 0.828 & 0.993 & 8  & 500 \\
+             & 80\,\%  & 5{,}600 & 0.775 & 0.838 & 0.995 & 24 & 1{,}090 \\
+             & 100\,\% & 7{,}000 & 0.777 & 0.839 & 0.995 & 21 & 970 \\
+    \hline
+    TrajCL   & 20\,\%  & 1{,}400 &  &  &  &  &  \\
+             & 40\,\%  & 2{,}800 &  &  &  &  &  \\
+             & 60\,\%  & 4{,}200 &  &  &  &  &  \\
+             & 80\,\%  & 5{,}600 &  &  &  &  &  \\
+             & 100\,\% & 7{,}000 &  &  &  &  &  \\
+    \hline
+    ConvTraj & 20\,\%  & 1{,}400 &  &  &  &  &  \\
+             & 40\,\%  & 2{,}800 &  &  &  &  &  \\
+             & 60\,\%  & 4{,}200 &  &  &  &  &  \\
+             & 80\,\%  & 5{,}600 &  &  &  &  &  \\
+             & 100\,\% & 7{,}000 &  &  &  &  &  \\
+    \hline
+  \end{tabular}
+  \caption{Test scores on the 2{,}000 test trajectories of \texttt{beijing\_20200}
+  with 20--100\,\% of the training trajectories (higher is better). Best epoch
+  counts from 0. Time is the training time in seconds, including the epochs run
+  before early stopping. For TrajCL it only covers fine-tuning.}
+  \label{tab:fraction-results}
+\end{table}
+
+For TSMini, HR@5 rises from 0.742 with 1{,}400 trajectories to 0.777 with 7{,}000,
+so five times as much data improves the score by 0.035. The improvement gets
+smaller as the training set grows, and from 80\,\% to 100\,\% it is only 0.002.
+R5@20 is above 0.99 for every size. The training time does not grow steadily with
+the size, because it mostly depends on when early stopping ends the run: the three
+smallest sets reached their best model after 6--9 epochs, the two largest after
+21--24.
+
+% TODO: TrajCL results
+% TODO: ConvTraj results
+% TODO: compare the three models (which benefits most from more data, which is best at 20 %)
+
+\paragraph{Limitations}
+Each size was trained only once with one seed, so small differences, such as
+between 40\,\% and 60\,\% for TSMini, may be within the run-to-run variation.
