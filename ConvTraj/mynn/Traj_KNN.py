@@ -116,15 +116,19 @@ class NeuTrajTrainer(object):
 
         new_list = [[i, final_train_length_list[i]] for i in range(final_traj_train_num)]
         new_list = [x[0] for x in new_list]
+        # local change: with --train_ratio < 1, the subset is cycled so every epoch has as many anchors
+        # (and batches) as the full training set; runs then differ in the amount of data, not of training
+        n_anchors = self.my_config.my_dict["train_set"]
+        new_list = [new_list[k % final_traj_train_num] for k in range(n_anchors)]
         total_result = []
-        for i in range(0, final_traj_train_num, batch_size):
+        for i in range(0, n_anchors, batch_size):
             anchor_lon,         positive_lon,         negative_lon       = [], [], []
             anchor_lat,         positive_lat,         negative_lat       = [], [], []
             anchor_image,       positive_image,       negative_image     = [], [], []
             anchor_length,      positive_length,      negative_length    = [], [], []
             positive_distance,  negative_distance,    cross_distance     = [], [], []
             for j in range(batch_size):
-                if i + j >= final_traj_train_num:
+                if i + j >= n_anchors:
                     break
                 anchor_pos = new_list[(i + j)]
                 

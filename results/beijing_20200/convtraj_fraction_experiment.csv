@@ -1,0 +1,6 @@
+fraction,n_train,hr5,hr20,hr20in5,epochs,train_time_s,log
+0.2,1400,0.7314,0.7878,0.989,200,284,exp/log/fraction_beijing_20200_20pct.log
+0.4,2800,0.7383,0.793475,0.9907,200,277,exp/log/fraction_beijing_20200_40pct.log
+0.6,4200,0.7451,0.7967,0.9913,200,287,exp/log/fraction_beijing_20200_60pct.log
+0.8,5600,0.7426,0.796125,0.9908,200,288,exp/log/fraction_beijing_20200_80pct.log
+1.0,7000,0.748,0.796275,0.9911,200,288,exp/log/fraction_beijing_20200_100pct.log
