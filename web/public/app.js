@@ -114,9 +114,14 @@ function renderList(listEl, items, category, unit) {
   }));
 }
 
+/**
+ * Ground truth is in metres: "850 m" or "2.35 km".
+ * Model (L1) distances have no unit and their size depends on the model (TSMini ~2, TrajCL ~0.03),
+ * so we show 3 significant digits: 1.85, 0.0234, 12.3.
+ */
 function formatDistance(value, unit) {
   if (unit === "m") return value >= 1000 ? `${(value / 1000).toFixed(2)} km` : `${Math.round(value)} m`;
-  return value.toFixed(2);
+  return Number(value.toPrecision(3)).toString();
 }
 
 function renderResult(result) {
